@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: battletanks-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: battletanks
+      POSTGRES_PASSWORD: battletanks
+      POSTGRES_DB: battletanks
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+  pgadmin:
+    image: dpage/pgadmin4:9
+    container_name: battletanks-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@battletanks.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8081:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+  redis:
+    image: redis:8
+    container_name: battletanks-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+  redis_data:
