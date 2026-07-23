@@ -1,0 +1,57 @@
+<div>
+  <h2>Battle Tanks - Waiting Room</h2>
+
+  @if (!joined()) {
+    <div>
+      <input
+        type="text"
+        [formField]="usernameForm.username"
+        placeholder="Enter your name"
+        (keyup.enter)="join()"
+      />
+      @if (usernameForm.username().touched() && usernameForm.username().invalid()) {
+        @for (error of usernameForm.username().errors(); track error) {
+          <p style="color: red;">{{ error.message }}</p>
+        }
+      }
+      <button (click)="join()">Join</button>
+    </div>
+  } @else {
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <p>You joined as <strong>{{ usernameModel().username }}</strong></p>
+      <button routerLink="/game" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Start Game</button>
+    </div>
+
+    <!-- Real-time Chat Section -->
+    <div style="margin-top: 20px; border-top: 1px solid #ccc; padding-top: 15px;">
+      <h3>Real-time Chat</h3>
+      <div style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;">
+        @for (msg of chatMessages(); track $index) {
+          <p style="margin: 4px 0;"><strong>{{ msg.username }}:</strong> {{ msg.text }}</p>
+        } @empty {
+          <p style="color: #888;">No chat messages yet.</p>
+        }
+      </div>
+
+      <div>
+        <input
+          type="text"
+          [value]="chatInput()"
+          (input)="chatInput.set($any($event.target).value)"
+          placeholder="Type a message..."
+          (keyup.enter)="sendChat()"
+        />
+        <button (click)="sendChat()">Send</button>
+      </div>
+    </div>
+  }
+
+  <h3>Connected players ({{ players().length }})</h3>
+  <ul>
+    @for (player of players(); track player.username) {
+      <li>{{ player.username }}</li>
+    } @empty {
+      <li>Waiting for players...</li>
+    }
+  </ul>
+</div>
