@@ -17,7 +17,6 @@ export class WaitingRoom {
   players = signal<PlayerInfo[]>([]);
   joined = signal(false);
 
-  // Real-time Chat Signals
   chatMessages = signal<ChatMessage[]>([]);
   chatInput = signal('');
 
@@ -31,7 +30,12 @@ export class WaitingRoom {
     this.gameService.connect();
 
     const joinSub = this.gameService.onPlayerJoin((playerInfo: PlayerInfo) => {
-      this.players.update((current) => [...current, playerInfo]);
+      this.players.update((current) => {
+        if (current.some(p => p.username === playerInfo.username)) {
+          return current;
+        }
+        return [...current, playerInfo];
+      });
     });
 
     const chatSub = this.gameService.onChatMessage((msg: ChatMessage) => {
