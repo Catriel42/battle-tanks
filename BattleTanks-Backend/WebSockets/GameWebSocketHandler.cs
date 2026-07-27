@@ -64,6 +64,10 @@ public class GameWebSocketHandler
                 {
                     _connectionManager.SetUsername(senderId, playerInfo.Username);
                     await SendExistingPlayersToNewUserAsync(senderId, options);
+
+                    var newPlayerInfo = playerInfo with { Id = senderId };
+                    var newGameMessage = gameMessage with { Payload = JsonSerializer.SerializeToElement(newPlayerInfo, options) };
+                    outboundMessageString = JsonSerializer.Serialize(newGameMessage, options);
                 }
             }
 
