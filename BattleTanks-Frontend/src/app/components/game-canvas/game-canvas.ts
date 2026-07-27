@@ -119,8 +119,6 @@ export class GameCanvas {
     this.ctx.fillStyle = '#00d4ff';
     this.ctx.fillRect(x, y, this.tankSize, this.tankSize);
 
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.fillRect(x + 15, y - 10, 10, 15);
 
     this.remotePlayers().forEach((pos) => {
       this.ctx.fillStyle = '#ff4757';
