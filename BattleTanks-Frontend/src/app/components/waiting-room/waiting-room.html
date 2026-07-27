@@ -46,9 +46,9 @@
     </div>
   }
 
-  <h3>Connected players ({{ players().length }})</h3>
+  <h3>Connected players ({{ playerStore.players().length }})</h3>
   <ul>
-    @for (player of players(); track player.username) {
+    @for (player of playerStore.players(); track player.username) {
       <li>{{ player.username }}</li>
     } @empty {
       <li>Waiting for players...</li>

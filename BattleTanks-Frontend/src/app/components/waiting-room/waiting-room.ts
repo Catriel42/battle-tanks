@@ -3,6 +3,7 @@ import { FormField, form, required, minLength } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
 import { Game } from '../../services/game';
 import { PlayerInfo, ChatMessage } from '../../models';
+import { PlayerStore } from '../../store/players.store';
 
 @Component({
   selector: 'app-waiting-room',
@@ -13,8 +14,8 @@ import { PlayerInfo, ChatMessage } from '../../models';
 export class WaitingRoom {
   private gameService: Game = inject(Game);
   private destroyRef = inject(DestroyRef);
+  playerStore = inject(PlayerStore);
 
-  players = signal<PlayerInfo[]>([]);
   joined = signal(false);
 
   chatMessages = signal<ChatMessage[]>([]);
@@ -27,25 +28,12 @@ export class WaitingRoom {
   });
 
   constructor() {
-    this.gameService.connect();
-
-    const joinSub = this.gameService.onPlayerJoin((playerInfo: PlayerInfo) => {
-      this.players.update((current) => {
-        if (current.some(p => p.username === playerInfo.username)) {
-          return current;
-        }
-        return [...current, playerInfo];
-      });
-    });
-
     const chatSub = this.gameService.onChatMessage((msg: ChatMessage) => {
       this.chatMessages.update((current) => [...current, msg]);
     });
 
     this.destroyRef.onDestroy(() => {
-      joinSub?.unsubscribe();
       chatSub?.unsubscribe();
-      this.gameService.disconnect();
     });
   }
 
@@ -54,7 +42,7 @@ export class WaitingRoom {
 
     const playerInfo: PlayerInfo = { username: this.usernameModel().username.trim() };
     this.gameService.sendPlayerJoin(playerInfo);
-    this.players.update((current) => [...current, playerInfo]);
+    this.playerStore.addPlayer(playerInfo);
     this.joined.set(true);
   }
 

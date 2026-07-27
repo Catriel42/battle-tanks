@@ -74,6 +74,10 @@ export class Game {
     return this.onMessage('join', callback);
   }
 
+  onPlayerLeave(callback: (playerInfo: PlayerInfo) => void): Subscription | null {
+    return this.onMessage('leave', callback);
+  }
+
   onGameState(callback: (state: GameState) => void): Subscription | null {
     return this.onMessage('state', callback);
   }
@@ -102,7 +106,10 @@ export class Game {
     return this.socket$
       .pipe(
         filter((msg) => msg.type === type),
-        map((msg) => msg.payload as P)
+        map((msg) => {
+          console.log(`[GameService] Received ${type}:`, msg.payload);
+          return msg.payload as P;
+        })
       )
       .subscribe({
         next: callback,

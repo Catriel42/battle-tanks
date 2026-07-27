@@ -13,6 +13,7 @@ import { fromEvent } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Game } from '../../services/game';
 import { PlayerPosition } from '../../models';
+import { PlayerStore } from '../../store/players.store';
 
 @Component({
   selector: 'app-game-canvas',
@@ -25,6 +26,7 @@ export class GameCanvas {
 
   private gameService: Game = inject(Game);
   private destroyRef = inject(DestroyRef);
+  playerStore = inject(PlayerStore);
 
   private ctx!: CanvasRenderingContext2D;
 
@@ -35,26 +37,13 @@ export class GameCanvas {
   readonly canvasHeight = 600;
 
   position = signal<PlayerPosition>({ x: 100, y: 100 });
-  private remotePlayers = signal<Map<string, PlayerPosition>>(new Map());
 
   constructor() {
-    this.gameService.connect();
-
-    const moveSub: Subscription | null = this.gameService.onPlayerMove((pos: PlayerPosition) => {
-      this.remotePlayers.update((current) => {
-        const next = new Map(current);
-        next.set('remote', pos);
-        return next;
-      });
-    });
-
     fromEvent<KeyboardEvent>(window, 'keydown')
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((event) => this.handleKeyDown(event));
 
     this.destroyRef.onDestroy(() => {
-      moveSub?.unsubscribe();
-      this.gameService.disconnect();
     });
 
     afterNextRender(() => {
@@ -68,7 +57,7 @@ export class GameCanvas {
 
     effect(() => {
       this.position();
-      this.remotePlayers();
+      this.playerStore.players();
       this.draw();
     });
   }
@@ -120,9 +109,11 @@ export class GameCanvas {
     this.ctx.fillRect(x, y, this.tankSize, this.tankSize);
 
 
-    this.remotePlayers().forEach((pos) => {
-      this.ctx.fillStyle = '#ff4757';
-      this.ctx.fillRect(pos.x, pos.y, this.tankSize, this.tankSize);
+    this.playerStore.players().forEach((player) => {
+      if (player.position) {
+        this.ctx.fillStyle = '#ff4757';
+        this.ctx.fillRect(player.position.x, player.position.y, this.tankSize, this.tankSize);
+      }
     });
   }
 }
