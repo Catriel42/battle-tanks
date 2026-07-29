@@ -6,9 +6,7 @@ import {
   inject,
   DestroyRef,
   signal,
-  effect,
 } from '@angular/core';
-import { Subscription } from 'rxjs';
 import { fromEvent } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Game } from '../../services/game';
@@ -29,6 +27,8 @@ export class GameCanvas {
   playerStore = inject(PlayerStore);
 
   private ctx!: CanvasRenderingContext2D;
+  private animationFrameId = 0;
+  private keysPressed = new Set<string>();
 
   private readonly tankSize = 40;
   private readonly speed = 5;
@@ -41,9 +41,28 @@ export class GameCanvas {
   constructor() {
     fromEvent<KeyboardEvent>(window, 'keydown')
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((event) => this.handleKeyDown(event));
+      .subscribe((event) => {
+        const key = event.key.toLowerCase();
+        if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
+          event.preventDefault();
+          this.keysPressed.add(key);
+        }
+      });
+
+    fromEvent<KeyboardEvent>(window, 'keyup')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((event) => {
+        this.keysPressed.delete(event.key.toLowerCase());
+      });
+
+    fromEvent(window, 'blur')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.keysPressed.clear();
+      });
 
     this.destroyRef.onDestroy(() => {
+      cancelAnimationFrame(this.animationFrameId);
     });
 
     afterNextRender(() => {
@@ -51,44 +70,37 @@ export class GameCanvas {
       const context = canvas.getContext('2d');
       if (context) {
         this.ctx = context;
-        this.draw();
+        this.gameLoop();
       }
-    });
-
-    effect(() => {
-      this.position();
-      this.playerStore.players();
-      this.draw();
     });
   }
 
-  private handleKeyDown(event: KeyboardEvent): void {
+  private gameLoop(): void {
+    this.update();
+    this.draw();
+    this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
+  }
+
+  private update(): void {
     const { x, y } = this.position();
     let newX = x;
     let newY = y;
     let moved = false;
 
-    switch (event.key.toLowerCase()) {
-      case 'w':
-      case 'arrowup':
-        if (y - this.speed >= 0) { newY -= this.speed; moved = true; }
-        break;
-      case 's':
-      case 'arrowdown':
-        if (y + this.tankSize + this.speed <= this.canvasHeight) { newY += this.speed; moved = true; }
-        break;
-      case 'a':
-      case 'arrowleft':
-        if (x - this.speed >= 0) { newX -= this.speed; moved = true; }
-        break;
-      case 'd':
-      case 'arrowright':
-        if (x + this.tankSize + this.speed <= this.canvasWidth) { newX += this.speed; moved = true; }
-        break;
+    if (this.keysPressed.has('w') || this.keysPressed.has('arrowup')) {
+      if (y - this.speed >= 0) { newY -= this.speed; moved = true; }
+    }
+    if (this.keysPressed.has('s') || this.keysPressed.has('arrowdown')) {
+      if (y + this.tankSize + this.speed <= this.canvasHeight) { newY += this.speed; moved = true; }
+    }
+    if (this.keysPressed.has('a') || this.keysPressed.has('arrowleft')) {
+      if (x - this.speed >= 0) { newX -= this.speed; moved = true; }
+    }
+    if (this.keysPressed.has('d') || this.keysPressed.has('arrowright')) {
+      if (x + this.tankSize + this.speed <= this.canvasWidth) { newX += this.speed; moved = true; }
     }
 
     if (moved) {
-      event.preventDefault();
       const newPos: PlayerPosition = { x: newX, y: newY };
       this.position.set(newPos);
       this.gameService.sendPlayerMove(newPos);
@@ -107,7 +119,6 @@ export class GameCanvas {
 
     this.ctx.fillStyle = '#00d4ff';
     this.ctx.fillRect(x, y, this.tankSize, this.tankSize);
-
 
     this.playerStore.players().forEach((player) => {
       if (player.position) {
