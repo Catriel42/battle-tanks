@@ -19,7 +19,7 @@
   } @else {
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <p>You joined as <strong>{{ usernameModel().username }}</strong></p>
-      <button routerLink="/game" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Start Game</button>
+      <button routerLink="/game" [queryParams]="{ username: usernameModel().username }" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Start Game</button>
     </div>
 
     <!-- Real-time Chat Section -->
