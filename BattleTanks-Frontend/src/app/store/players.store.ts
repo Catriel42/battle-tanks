@@ -1,11 +1,14 @@
-import { inject } from '@angular/core';
-import { signalStore, withState, withMethods, patchState, withHooks } from '@ngrx/signals';
+import { computed, inject } from '@angular/core';
+import { signalStore, withState, withMethods, withComputed, patchState, withHooks } from '@ngrx/signals';
 import { PlayerInfo, PlayerPosition } from '../models';
 import { Game } from '../services/game';
 
+export type PlayerStatus = 'Alive' | 'Dead';
+
 export interface PlayerState extends PlayerInfo {
   position?: PlayerPosition;
-  health?: number;
+  health: number;
+  score: number;
 }
 
 export type PlayersState = {
@@ -16,17 +19,25 @@ const initialState: PlayersState = {
   players: [],
 };
 
+const MAX_HEALTH = 3;
+
 export const PlayerStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
+  withComputed((store) => ({
+    alivePlayers: computed(() => store.players().filter((p) => p.health > 0)),
+  })),
   withMethods((store) => ({
-    addPlayer(player: PlayerState): void {
+    addPlayer(player: PlayerInfo): void {
       patchState(store, (state) => {
         if (state.players.some((p) => p.username === player.username)) {
           return { players: state.players };
         }
-        console.log('[PlayerStore] Adding player:', player);
-        const newPlayer = { ...player, health: player.health ?? 100 };
+        const newPlayer: PlayerState = {
+          ...player,
+          health: MAX_HEALTH,
+          score: 0,
+        };
         return { players: [...state.players, newPlayer] };
       });
     },
@@ -36,7 +47,6 @@ export const PlayerStore = signalStore(
       }));
     },
     updatePlayerPosition(id: string, position: PlayerPosition): void {
-      console.log('[PlayerStore] Updating position for ID:', id, position);
       patchState(store, (state) => ({
         players: state.players.map((p) =>
           p.id === id ? { ...p, position } : p
@@ -47,6 +57,23 @@ export const PlayerStore = signalStore(
       patchState(store, (state) => ({
         players: state.players.filter((p) => p.id !== id),
       }));
+    },
+    damagePlayer(id: string): void {
+      patchState(store, (state) => ({
+        players: state.players.map((p) =>
+          p.id === id ? { ...p, health: Math.max(0, p.health - 1) } : p
+        ),
+      }));
+    },
+    incrementScore(id: string, points: number): void {
+      patchState(store, (state) => ({
+        players: state.players.map((p) =>
+          p.id === id ? { ...p, score: p.score + points } : p
+        ),
+      }));
+    },
+    getPlayerStatus(health: number): PlayerStatus {
+      return health > 0 ? 'Alive' : 'Dead';
     },
   })),
   withHooks({
