@@ -1,0 +1,120 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+.hud-container {
+  width: 220px;
+  height: 600px;
+  background-color: #0a0a0a;
+  border-left: 4px solid #333;
+  padding: 16px;
+  font-family: 'Press Start 2P', cursive;
+  color: #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.hud-title {
+  font-size: 12px;
+  text-align: center;
+  color: #ffcc00;
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 2px dashed #333;
+}
+
+.hud-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-title {
+  font-size: 8px;
+  color: #888;
+  margin: 0;
+  letter-spacing: 2px;
+}
+
+.player-card {
+  background-color: #1a1a2e;
+  border: 2px solid #333;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  &.local {
+    border-color: #00d4ff;
+    background-color: #0d1b2a;
+  }
+}
+
+.player-name {
+  font-size: 8px;
+  color: #fff;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-hearts {
+  display: flex;
+  gap: 2px;
+
+  .heart {
+    font-size: 12px;
+  }
+}
+
+.status {
+  font-size: 7px;
+  font-weight: bold;
+  letter-spacing: 1px;
+
+  &.alive {
+    color: #00ff41;
+  }
+
+  &.dead {
+    color: #ff1744;
+  }
+}
+
+.player-score {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.score-label {
+  font-size: 6px;
+  color: #888;
+}
+
+.score-value {
+  font-size: 10px;
+  color: #ffcc00;
+}
+
+.no-players {
+  font-size: 7px;
+  color: #555;
+  text-align: center;
+  margin: 8px 0;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 7px;
+  padding: 4px 0;
+  border-bottom: 1px solid #222;
+
+  span:last-child {
+    color: #ffcc00;
+  }
+}

@@ -1,0 +1,48 @@
+<div class="hud-container">
+  <h2 class="hud-title">BATTLE TANKS</h2>
+
+  <div class="hud-section">
+    <h3 class="section-title">PLAYERS</h3>
+
+    @for (player of playerStore.players(); track player.username) {
+      <div class="player-card" [class.local]="player.username === localUsername()">
+        <span class="player-name">{{ player.username }}</span>
+
+        <div class="player-hearts">
+          @for (heart of getHearts(player.health); track $index) {
+            <span class="heart">{{ heart }}</span>
+          }
+        </div>
+
+        @if (playerStore.getPlayerStatus(player.health) === 'Alive') {
+          <span class="status alive">ALIVE</span>
+        } @else {
+          <span class="status dead">DEAD</span>
+        }
+
+        <div class="player-score">
+          <span class="score-label">SCORE</span>
+          <span class="score-value">{{ player.score }}</span>
+        </div>
+      </div>
+    } @empty {
+      <p class="no-players">NO PLAYERS</p>
+    }
+  </div>
+
+  <div class="hud-section">
+    <h3 class="section-title">INFO</h3>
+    <div class="info-row">
+      <span>AMMO</span>
+      <span>∞</span>
+    </div>
+    <div class="info-row">
+      <span>PLAYERS</span>
+      <span>{{ playerStore.players().length }}</span>
+    </div>
+    <div class="info-row">
+      <span>ALIVE</span>
+      <span>{{ playerStore.alivePlayers().length }}</span>
+    </div>
+  </div>
+</div>
