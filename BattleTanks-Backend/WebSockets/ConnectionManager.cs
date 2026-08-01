@@ -3,17 +3,6 @@ using System.Net.WebSockets;
 
 namespace BattleTanks_Backend.WebSockets;
 
-public class PlayerConnection
-{
-    public WebSocket Socket { get; }
-    public string? Username { get; set; }
-
-    public PlayerConnection(WebSocket socket)
-    {
-        Socket = socket;
-    }
-}
-
 public class ConnectionManager
 {
     private readonly ConcurrentDictionary<string, PlayerConnection> _connections = new();

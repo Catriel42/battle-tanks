@@ -19,6 +19,11 @@ public class GameWebSocketHandler
         var socketId = _connectionManager.AddSocket(socket);
         Console.WriteLine($"Socket Connected: {socketId}");
 
+        var welcomeMessage = new GameMessage("welcome", JsonSerializer.SerializeToElement(new { id = socketId }));
+        var welcomeString = JsonSerializer.Serialize(welcomeMessage);
+        var welcomeBytes = Encoding.UTF8.GetBytes(welcomeString);
+        await socket.SendAsync(new ArraySegment<byte>(welcomeBytes, 0, welcomeBytes.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+
         var buffer = new byte[1024 * 4];
 
         try
