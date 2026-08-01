@@ -40,7 +40,11 @@ export class WaitingRoom {
   join() {
     if (this.usernameForm().invalid()) return;
 
-    const playerInfo: PlayerInfo = { username: this.usernameModel().username.trim() };
+    const playerInfo: PlayerInfo = { 
+      username: this.usernameModel().username.trim(),
+      id: this.playerStore.localPlayerId() ?? undefined
+    };
+    this.playerStore.setLocalUsername(playerInfo.username);
     this.gameService.sendPlayerJoin(playerInfo);
     this.playerStore.addPlayer(playerInfo);
     this.joined.set(true);

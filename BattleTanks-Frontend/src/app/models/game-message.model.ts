@@ -40,4 +40,6 @@ export type GameMessage =
   | { type: 'chat'; payload: ChatMessage }
   | { type: 'join'; payload: PlayerInfo }
   | { type: 'leave'; payload: PlayerInfo }
-  | { type: 'state'; payload: GameState };
+  | { type: 'state'; payload: GameState }
+  | { type: 'welcome'; payload: { id: string } }
+  | { type: 'destroy_block'; payload: { row: number; col: number; id?: string } };

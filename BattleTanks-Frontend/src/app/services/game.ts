@@ -82,6 +82,18 @@ export class Game {
     return this.onMessage('state', callback);
   }
 
+  onWelcome(callback: (payload: { id: string }) => void): Subscription | null {
+    return this.onMessage('welcome', callback);
+  }
+
+  sendDestroyBlock(row: number, col: number, id?: string): void {
+    this.send({ type: 'destroy_block', payload: { row, col, id } });
+  }
+
+  onDestroyBlock(callback: (payload: { row: number; col: number; id?: string }) => void): Subscription | null {
+    return this.onMessage('destroy_block', callback);
+  }
+
   getConnectionStatus$() {
     return this.connectionStatus$.asObservable();
   }

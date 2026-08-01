@@ -13,10 +13,14 @@ export interface PlayerState extends PlayerInfo {
 
 export type PlayersState = {
   players: PlayerState[];
+  localPlayerId: string | null;
+  localUsername: string | null;
 };
 
 const initialState: PlayersState = {
   players: [],
+  localPlayerId: null,
+  localUsername: null,
 };
 
 const MAX_HEALTH = 3;
@@ -30,7 +34,7 @@ export const PlayerStore = signalStore(
   withMethods((store) => ({
     addPlayer(player: PlayerInfo): void {
       patchState(store, (state) => {
-        if (state.players.some((p) => p.username === player.username)) {
+        if (state.players.some((p) => p.id === player.id)) {
           return { players: state.players };
         }
         const newPlayer: PlayerState = {
@@ -41,9 +45,9 @@ export const PlayerStore = signalStore(
         return { players: [...state.players, newPlayer] };
       });
     },
-    removePlayer(username: string): void {
+    removePlayer(id: string): void {
       patchState(store, (state) => ({
-        players: state.players.filter((p) => p.username !== username),
+        players: state.players.filter((p) => p.id !== id),
       }));
     },
     updatePlayerPosition(id: string, position: PlayerPosition): void {
@@ -72,6 +76,17 @@ export const PlayerStore = signalStore(
         ),
       }));
     },
+    setLocalPlayerId(id: string): void {
+      patchState(store, (state) => ({
+        localPlayerId: id,
+        players: state.players.map((p) =>
+          p.username === state.localUsername ? { ...p, id } : p
+        ),
+      }));
+    },
+    setLocalUsername(username: string): void {
+      patchState(store, { localUsername: username });
+    },
     getPlayerStatus(health: number): PlayerStatus {
       return health > 0 ? 'Alive' : 'Dead';
     },
@@ -81,6 +96,10 @@ export const PlayerStore = signalStore(
       const gameService = inject(Game);
 
       gameService.connect();
+
+      gameService.onWelcome?.((payload) => {
+        store.setLocalPlayerId(payload.id);
+      });
 
       gameService.onPlayerJoin((player) => {
         store.addPlayer(player);
