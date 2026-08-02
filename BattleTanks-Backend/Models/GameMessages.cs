@@ -11,7 +11,8 @@ public record GameMessage(
 public record PlayerPosition(
     [property: JsonPropertyName("id")] string? Id,
     [property: JsonPropertyName("x")] double X,
-    [property: JsonPropertyName("y")] double Y
+    [property: JsonPropertyName("y")] double Y,
+    [property: JsonPropertyName("direction")] string? Direction
 );
 
 public record ChatMessage(
