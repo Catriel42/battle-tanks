@@ -1,4 +1,4 @@
-import { PlayerPosition } from './player-position.model';
+import { PlayerPosition } from './game-position.model';
 
 /**
  * Information about a player joining the game.

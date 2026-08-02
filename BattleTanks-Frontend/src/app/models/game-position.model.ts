@@ -9,3 +9,10 @@ export interface PlayerPosition {
   y: number;
   direction?: Direction;
 }
+
+export interface Bullet {
+  x: number;
+  y: number;
+  direction: Direction;
+  ownerId: string;
+}

@@ -11,14 +11,7 @@ import {
 import { fromEvent } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Game } from '../../services/game';
-import { PlayerPosition, Direction } from '../../models';
-
-interface Bullet {
-  x: number;
-  y: number;
-  direction: Direction;
-  ownerId: string;
-}
+import { PlayerPosition, Direction, Bullet } from '../../models';
 
 import { PlayerStore } from '../../store/players.store';
 import { MapStore } from '../../store/map.store';
