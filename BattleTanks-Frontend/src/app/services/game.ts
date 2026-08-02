@@ -94,6 +94,14 @@ export class Game {
     return this.onMessage('destroy_block', callback);
   }
 
+  sendShoot(id: string, x: number, y: number, direction: string): void {
+    this.send({ type: 'shoot', payload: { id, x, y, direction } });
+  }
+
+  onShoot(callback: (payload: { id: string; x: number; y: number; direction: string }) => void): Subscription | null {
+    return this.onMessage('shoot', callback);
+  }
+
   getConnectionStatus$() {
     return this.connectionStatus$.asObservable();
   }
