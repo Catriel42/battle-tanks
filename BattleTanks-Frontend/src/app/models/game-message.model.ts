@@ -42,4 +42,5 @@ export type GameMessage =
   | { type: 'leave'; payload: PlayerInfo }
   | { type: 'state'; payload: GameState }
   | { type: 'welcome'; payload: { id: string } }
-  | { type: 'destroy_block'; payload: { row: number; col: number; id?: string } };
+  | { type: 'destroy_block'; payload: { row: number; col: number; id?: string } }
+  | { type: 'shoot'; payload: { id: string; x: number; y: number; direction: string } };
