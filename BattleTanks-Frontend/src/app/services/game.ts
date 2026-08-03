@@ -74,8 +74,32 @@ export class Game {
     return this.onMessage('join', callback);
   }
 
+  onPlayerLeave(callback: (playerInfo: PlayerInfo) => void): Subscription | null {
+    return this.onMessage('leave', callback);
+  }
+
   onGameState(callback: (state: GameState) => void): Subscription | null {
     return this.onMessage('state', callback);
+  }
+
+  onWelcome(callback: (payload: { id: string }) => void): Subscription | null {
+    return this.onMessage('welcome', callback);
+  }
+
+  sendDestroyBlock(row: number, col: number, id?: string): void {
+    this.send({ type: 'destroy_block', payload: { row, col, id } });
+  }
+
+  onDestroyBlock(callback: (payload: { row: number; col: number; id?: string }) => void): Subscription | null {
+    return this.onMessage('destroy_block', callback);
+  }
+
+  sendShoot(id: string, x: number, y: number, direction: string): void {
+    this.send({ type: 'shoot', payload: { id, x, y, direction } });
+  }
+
+  onShoot(callback: (payload: { id: string; x: number; y: number; direction: string }) => void): Subscription | null {
+    return this.onMessage('shoot', callback);
   }
 
   getConnectionStatus$() {
@@ -102,7 +126,10 @@ export class Game {
     return this.socket$
       .pipe(
         filter((msg) => msg.type === type),
-        map((msg) => msg.payload as P)
+        map((msg) => {
+          console.log(`[GameService] Received ${type}:`, msg.payload);
+          return msg.payload as P;
+        })
       )
       .subscribe({
         next: callback,

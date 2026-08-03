@@ -7,6 +7,6 @@ export const routes: Routes = [
   },
   { 
     path: 'game', 
-    loadComponent: () => import('./components/game-canvas/game-canvas').then(m => m.GameCanvas) 
+    loadComponent: () => import('./components/game/game.component').then(m => m.GameComponent) 
   },
 ];

@@ -1,4 +1,4 @@
-import { PlayerPosition } from './player-position.model';
+import { PlayerPosition } from './game-position.model';
 
 /**
  * Information about a player joining the game.
@@ -40,4 +40,7 @@ export type GameMessage =
   | { type: 'chat'; payload: ChatMessage }
   | { type: 'join'; payload: PlayerInfo }
   | { type: 'leave'; payload: PlayerInfo }
-  | { type: 'state'; payload: GameState };
+  | { type: 'state'; payload: GameState }
+  | { type: 'welcome'; payload: { id: string } }
+  | { type: 'destroy_block'; payload: { row: number; col: number; id?: string } }
+  | { type: 'shoot'; payload: { id: string; x: number; y: number; direction: string } };

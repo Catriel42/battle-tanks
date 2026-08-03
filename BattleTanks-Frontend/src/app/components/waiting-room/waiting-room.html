@@ -19,7 +19,7 @@
   } @else {
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <p>You joined as <strong>{{ usernameModel().username }}</strong></p>
-      <button routerLink="/game" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Start Game</button>
+      <button routerLink="/game" [queryParams]="{ username: usernameModel().username }" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Start Game</button>
     </div>
 
     <!-- Real-time Chat Section -->
@@ -46,9 +46,9 @@
     </div>
   }
 
-  <h3>Connected players ({{ players().length }})</h3>
+  <h3>Connected players ({{ playerStore.players().length }})</h3>
   <ul>
-    @for (player of players(); track player.username) {
+    @for (player of playerStore.players(); track player.username) {
       <li>{{ player.username }}</li>
     } @empty {
       <li>Waiting for players...</li>
