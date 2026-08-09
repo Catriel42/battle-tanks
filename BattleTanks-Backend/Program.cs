@@ -1,8 +1,13 @@
+using BattleTanks_Backend.Data;
 using BattleTanks_Backend.WebSockets;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.UseUrls("http://localhost:5000");
+
+builder.Services.AddDbContext<BattleTanksDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 
 builder.Services.AddCors(options =>
