@@ -1,7 +1,10 @@
 using BattleTanks_Backend.Data;
 using BattleTanks_Backend.WebSockets;
 using Microsoft.EntityFrameworkCore;
-
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Scalar.AspNetCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.UseUrls("http://localhost:5000");
@@ -24,9 +27,47 @@ builder.Services.AddCors(options =>
 builder.Services.AddSingleton<ConnectionManager>();
 builder.Services.AddSingleton<GameWebSocketHandler>();
 
+builder.Services.AddControllers();
+
+// Configure JWT Authentication
+var jwtSecret = builder.Configuration["Jwt:Secret"];
+if (string.IsNullOrEmpty(jwtSecret))
+{
+    throw new InvalidOperationException("JWT Secret is missing in configuration.");
+}
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+// Configure Swagger with JWT support
+builder.Services.AddOpenApi();
+
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
+}
+
 app.UseCors("AllowAll");
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 var webSocketOptions = new WebSocketOptions
 {
@@ -47,5 +88,7 @@ app.Map("/ws", async context =>
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
     }
 });
+
+app.MapControllers();
 
 app.Run();

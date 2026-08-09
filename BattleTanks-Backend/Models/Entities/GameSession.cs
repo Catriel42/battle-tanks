@@ -17,4 +17,5 @@ public class GameSession
     public DateTime? FinishedAt { get; set; }
 
     public ICollection<Score> Scores { get; set; } = new List<Score>();
+    public ICollection<Player> Players { get; set; } = new List<Player>();
 }
