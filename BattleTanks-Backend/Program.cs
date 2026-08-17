@@ -1,4 +1,5 @@
 using BattleTanks_Backend.Data;
+using BattleTanks_Backend.Hubs;
 using BattleTanks_Backend.WebSockets;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,24 +13,24 @@ builder.WebHost.UseUrls("http://localhost:5000");
 builder.Services.AddDbContext<BattleTanksDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddSignalR();
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AllowAngular", policy =>
     {
-        policy.AllowAnyOrigin()
-        .AllowAnyMethod()
-        .AllowAnyHeader();
+        policy.WithOrigins("http://localhost:4200", "http://localhost:4300")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
     });
 });
-
 
 builder.Services.AddSingleton<ConnectionManager>();
 builder.Services.AddSingleton<GameWebSocketHandler>();
 
 builder.Services.AddControllers();
 
-// Configure JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"];
 if (string.IsNullOrEmpty(jwtSecret))
 {
@@ -53,7 +54,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// Configure Swagger with JWT support
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
@@ -64,7 +64,7 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-app.UseCors("AllowAll");
+app.UseCors("AllowAngular");
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -88,6 +88,8 @@ app.Map("/ws", async context =>
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
     }
 });
+
+app.MapHub<GameHub>("/gamehub");
 
 app.MapControllers();
 
