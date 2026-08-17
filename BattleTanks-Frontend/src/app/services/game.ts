@@ -1,139 +1,134 @@
 import { Service } from '@angular/core';
-import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
+import * as signalR from '@microsoft/signalr';
 import { Subject, Subscription } from 'rxjs';
-import { filter, map } from 'rxjs/operators';
 
-import {
-  GameMessage,
-  PlayerPosition,
-  PlayerInfo,
-  ChatMessage,
-  GameState,
-} from '../models';
+import { PlayerPosition, PlayerInfo, ChatMessage, GameState } from '../models';
 
 @Service()
 export class Game {
-  private socket$: WebSocketSubject<GameMessage> | null = null;
+  private hubConnection: signalR.HubConnection | null = null;
+  private readonly HUB_URL = 'http://localhost:5000/gamehub';
+
   private connectionStatus$ = new Subject<boolean>();
-  private readonly DEFAULT_URL = 'ws://localhost:5000/ws';
+  private welcome$ = new Subject<{ id: string }>();
+  private playerJoin$ = new Subject<PlayerInfo>();
+  private playerLeave$ = new Subject<PlayerInfo>();
+  private playerMove$ = new Subject<PlayerPosition>();
+  private chatMessage$ = new Subject<ChatMessage>();
+  private gameState$ = new Subject<GameState>();
+  private shoot$ = new Subject<{ id: string; x: number; y: number; direction: string }>();
+  private destroyBlock$ = new Subject<{ row: number; col: number; id?: string }>();
 
   connect(url?: string): void {
-    if (this.socket$) {
+    if (this.hubConnection) {
       this.disconnect();
     }
 
-    this.socket$ = webSocket<GameMessage>({
-      url: url ?? this.DEFAULT_URL,
-      openObserver: {
-        next: () => {
-          console.log('[GameService] WebSocket connection opened');
-          this.connectionStatus$.next(true);
-        },
-      },
-      closeObserver: {
-        next: () => {
-          console.log('[GameService] WebSocket connection closed');
-          this.connectionStatus$.next(false);
-        },
-      },
-    });
+    this.hubConnection = new signalR.HubConnectionBuilder()
+      .withUrl(url ?? this.HUB_URL)
+      .withAutomaticReconnect()
+      .configureLogging(signalR.LogLevel.Warning)
+      .build();
 
-    this.socket$.subscribe({
-      error: (err) => console.error('[GameService] WebSocket error:', err),
-    });
+    this.hubConnection.on('ReceiveWelcome', (payload: { id: string }) => this.welcome$.next(payload));
+    this.hubConnection.on('ReceivePlayerJoin', (payload: PlayerInfo) => this.playerJoin$.next(payload));
+    this.hubConnection.on('ReceivePlayerLeave', (payload: PlayerInfo) => this.playerLeave$.next(payload));
+    this.hubConnection.on('ReceivePlayerMove', (payload: PlayerPosition) => this.playerMove$.next(payload));
+    this.hubConnection.on('ReceiveChatMessage', (payload: ChatMessage) => this.chatMessage$.next(payload));
+    this.hubConnection.on('ReceiveShoot', (payload: { id: string; x: number; y: number; direction: string }) => this.shoot$.next(payload));
+    this.hubConnection.on('ReceiveDestroyBlock', (payload: { row: number; col: number; id?: string }) => this.destroyBlock$.next(payload));
+
+    this.hubConnection.onreconnecting(() => this.connectionStatus$.next(false));
+    this.hubConnection.onreconnected(() => this.connectionStatus$.next(true));
+    this.hubConnection.onclose(() => this.connectionStatus$.next(false));
+
+    this.hubConnection
+      .start()
+      .then(() => {
+        console.log('[GameService] SignalR connected');
+        this.connectionStatus$.next(true);
+      })
+      .catch((err) => console.error('[GameService] SignalR connection error:', err));
   }
 
   disconnect(): void {
-    if (this.socket$) {
-      this.socket$.complete();
-      this.socket$ = null;
+    this.hubConnection?.stop();
+    this.hubConnection = null;
+  }
+
+  sendPlayerJoin(username: string): void {
+    if (!this.hubConnection) {
+      console.warn('[GameService] Cannot send message — not connected.');
+      return;
     }
+    this.hubConnection.invoke('SendPlayerJoin', username);
+  }
+
+  onPlayerJoin(callback: (info: PlayerInfo) => void): Subscription {
+    return this.playerJoin$.subscribe(callback);
   }
 
   sendPlayerMove(position: PlayerPosition): void {
-    this.send({ type: 'move', payload: position });
+    if (!this.hubConnection) {
+      console.warn('[GameService] Cannot send message — not connected.');
+      return;
+    }
+    this.hubConnection.invoke('SendPlayerMove', position.x, position.y, position.direction ?? 'UP');
   }
 
-  onPlayerMove(callback: (position: PlayerPosition) => void): Subscription | null {
-    return this.onMessage('move', callback);
+  onPlayerMove(callback: (position: PlayerPosition) => void): Subscription {
+    return this.playerMove$.subscribe(callback);
   }
 
   sendChatMessage(message: ChatMessage): void {
-    this.send({ type: 'chat', payload: message });
+    if (!this.hubConnection) {
+      console.warn('[GameService] Cannot send message — not connected.');
+      return;
+    }
+    this.hubConnection.invoke('SendChatMessage', message.username, message.text);
   }
 
-  onChatMessage(callback: (message: ChatMessage) => void): Subscription | null {
-    return this.onMessage('chat', callback);
+  onChatMessage(callback: (message: ChatMessage) => void): Subscription {
+    return this.chatMessage$.subscribe(callback);
   }
 
-  sendPlayerJoin(playerInfo: PlayerInfo): void {
-    this.send({ type: 'join', payload: playerInfo });
+  onPlayerLeave(callback: (info: PlayerInfo) => void): Subscription {
+    return this.playerLeave$.subscribe(callback);
   }
 
-  onPlayerJoin(callback: (playerInfo: PlayerInfo) => void): Subscription | null {
-    return this.onMessage('join', callback);
+  onWelcome(callback: (payload: { id: string }) => void): Subscription {
+    return this.welcome$.subscribe(callback);
   }
 
-  onPlayerLeave(callback: (playerInfo: PlayerInfo) => void): Subscription | null {
-    return this.onMessage('leave', callback);
-  }
-
-  onGameState(callback: (state: GameState) => void): Subscription | null {
-    return this.onMessage('state', callback);
-  }
-
-  onWelcome(callback: (payload: { id: string }) => void): Subscription | null {
-    return this.onMessage('welcome', callback);
-  }
-
-  sendDestroyBlock(row: number, col: number, id?: string): void {
-    this.send({ type: 'destroy_block', payload: { row, col, id } });
-  }
-
-  onDestroyBlock(callback: (payload: { row: number; col: number; id?: string }) => void): Subscription | null {
-    return this.onMessage('destroy_block', callback);
+  onGameState(callback: (state: GameState) => void): Subscription {
+    return this.gameState$.subscribe(callback);
   }
 
   sendShoot(id: string, x: number, y: number, direction: string): void {
-    this.send({ type: 'shoot', payload: { id, x, y, direction } });
+    if (!this.hubConnection) {
+      console.warn('[GameService] Cannot send message — not connected.');
+      return;
+    }
+    this.hubConnection.invoke('SendShoot', x, y, direction);
   }
 
-  onShoot(callback: (payload: { id: string; x: number; y: number; direction: string }) => void): Subscription | null {
-    return this.onMessage('shoot', callback);
+  onShoot(callback: (payload: { id: string; x: number; y: number; direction: string }) => void): Subscription {
+    return this.shoot$.subscribe(callback);
+  }
+
+  sendDestroyBlock(row: number, col: number, id?: string): void {
+    if (!this.hubConnection) {
+      console.warn('[GameService] Cannot send message — not connected.');
+      return;
+    }
+    this.hubConnection.invoke('SendDestroyBlock', row, col);
+  }
+
+  onDestroyBlock(callback: (payload: { row: number; col: number; id?: string }) => void): Subscription {
+    return this.destroyBlock$.subscribe(callback);
   }
 
   getConnectionStatus$() {
     return this.connectionStatus$.asObservable();
-  }
-
-  private send(message: GameMessage): void {
-    if (!this.socket$) {
-      console.warn('[GameService] Cannot send message — not connected.');
-      return;
-    }
-    this.socket$.next(message);
-  }
-
-  private onMessage<P>(
-    type: GameMessage['type'],
-    callback: (payload: P) => void
-  ): Subscription | null {
-    if (!this.socket$) {
-      console.warn(`[GameService] Cannot listen for "${type}" — not connected.`);
-      return null;
-    }
-
-    return this.socket$
-      .pipe(
-        filter((msg) => msg.type === type),
-        map((msg) => {
-          console.log(`[GameService] Received ${type}:`, msg.payload);
-          return msg.payload as P;
-        })
-      )
-      .subscribe({
-        next: callback,
-        error: (err) => console.error(`[GameService] Error on "${type}" listener:`, err),
-      });
   }
 }

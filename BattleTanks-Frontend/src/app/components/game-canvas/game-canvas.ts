@@ -87,7 +87,6 @@ export class GameCanvas {
     });
 
     this.gameService.onPlayerJoin(() => {
-      // Announce our presence to the newly joined player
       this.gameService.sendPlayerMove(this.position());
     });
 
@@ -138,7 +137,6 @@ export class GameCanvas {
 
         this.gameLoop();
 
-        // Announce our initial spawn position to everyone already in the game
         this.gameService.sendPlayerMove(this.position());
       }
     });
