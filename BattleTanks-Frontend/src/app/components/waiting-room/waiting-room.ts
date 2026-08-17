@@ -24,7 +24,7 @@ export class WaitingRoom implements OnInit {
   isLoading = signal(false);
   errorMsg = signal<string | null>(null);
 
-  chatMessages = signal<ChatMessage[]>([]);
+
   chatInput = signal('');
   
   availableRooms = signal<Room[]>([]);
@@ -35,15 +35,6 @@ export class WaitingRoom implements OnInit {
     required(f.mapName, { message: 'Map name is required' });
   });
 
-  constructor() {
-    const chatSub = this.gameService.onChatMessage((msg: ChatMessage) => {
-      this.chatMessages.update((current) => [...current, msg]);
-    });
-
-    this.destroyRef.onDestroy(() => {
-      chatSub?.unsubscribe();
-    });
-  }
 
   ngOnInit(): void {
     const username = this.authService.getUsername();
@@ -113,7 +104,39 @@ export class WaitingRoom implements OnInit {
     };
 
     this.gameService.sendChatMessage(msg);
-    this.chatMessages.update((current) => [...current, msg]);
     this.chatInput.set('');
+  }
+
+  runBenchmark(): void {
+    if (!this.joined()) {
+      return;
+    }
+    
+    let pingsSent = 0;
+    const maxPings = 10;
+    const rtts: number[] = [];
+    
+    const sub = this.gameService.onPong((timestamp: number) => {
+      const rtt = Date.now() - timestamp;
+      rtts.push(rtt);
+      
+      if (rtts.length === maxPings) {
+        sub.unsubscribe();
+        const avg = rtts.reduce((a, b) => a + b, 0) / maxPings;
+        const min = Math.min(...rtts);
+        const max = Math.max(...rtts);
+        console.log(`[Benchmark] RTT over ${maxPings} pings: Avg=${avg}ms, Min=${min}ms, Max=${max}ms`);
+        this.errorMsg.set(`Benchmark complete. Avg RTT: ${avg.toFixed(2)}ms`);
+      }
+    });
+
+    const interval = setInterval(() => {
+      if (pingsSent >= maxPings) {
+        clearInterval(interval);
+        return;
+      }
+      this.gameService.sendPing();
+      pingsSent++;
+    }, 200);
   }
 }

@@ -18,6 +18,7 @@ export class Game {
   private gameState$ = new Subject<GameState>();
   private shoot$ = new Subject<{ id: string; x: number; y: number; direction: string }>();
   private destroyBlock$ = new Subject<{ row: number; col: number; id?: string }>();
+  private pong$ = new Subject<number>();
 
   connect(url?: string): void {
     if (this.hubConnection) {
@@ -37,6 +38,7 @@ export class Game {
     this.hubConnection.on('ReceiveChatMessage', (payload: ChatMessage) => this.chatMessage$.next(payload));
     this.hubConnection.on('ReceiveShoot', (payload: { id: string; x: number; y: number; direction: string }) => this.shoot$.next(payload));
     this.hubConnection.on('ReceiveDestroyBlock', (payload: { row: number; col: number; id?: string }) => this.destroyBlock$.next(payload));
+    this.hubConnection.on('Pong', (timestamp: number) => this.pong$.next(timestamp));
 
     this.hubConnection.onreconnecting(() => this.connectionStatus$.next(false));
     this.hubConnection.onreconnected(() => this.connectionStatus$.next(true));
@@ -130,5 +132,16 @@ export class Game {
 
   getConnectionStatus$() {
     return this.connectionStatus$.asObservable();
+  }
+
+  sendPing(): void {
+    if (!this.hubConnection) {
+      return;
+    }
+    this.hubConnection.invoke('Ping');
+  }
+
+  onPong(callback: (timestamp: number) => void): Subscription {
+    return this.pong$.subscribe(callback);
   }
 }
