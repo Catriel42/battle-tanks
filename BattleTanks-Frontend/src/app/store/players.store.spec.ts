@@ -10,9 +10,10 @@ describe('PlayerStore', () => {
   beforeEach(() => {
     mockGameService = {
       connect: vi.fn(),
-      onPlayerJoin: vi.fn(),
-      onPlayerLeave: vi.fn(),
-      onPlayerMove: vi.fn()
+      onWelcome: vi.fn().mockReturnValue({ unsubscribe: vi.fn() }),
+      onPlayerJoin: vi.fn().mockReturnValue({ unsubscribe: vi.fn() }),
+      onPlayerLeave: vi.fn().mockReturnValue({ unsubscribe: vi.fn() }),
+      onPlayerMove: vi.fn().mockReturnValue({ unsubscribe: vi.fn() }),
     };
 
     TestBed.configureTestingModule({
@@ -29,15 +30,15 @@ describe('PlayerStore', () => {
   });
 
   it('should add a player', () => {
-    store.addPlayer({ username: 'Cato' });
+    store.addPlayer({ username: 'Cato', id: 'uuid-cato' });
     expect(store.players().length).toBe(1);
     expect(store.players()[0].username).toBe('Cato');
-    expect(store.players()[0].health).toBe(100);
+    expect(store.players()[0].health).toBe(3);
   });
 
   it('should avoid adding duplicate players', () => {
-    store.addPlayer({ username: 'Cato' });
-    store.addPlayer({ username: 'Cato' });
+    store.addPlayer({ username: 'Cato', id: 'uuid-cato' });
+    store.addPlayer({ username: 'Cato', id: 'uuid-cato' });
     expect(store.players().length).toBe(1);
   });
 
@@ -47,11 +48,11 @@ describe('PlayerStore', () => {
     expect(store.players()[0].position).toEqual({ x: 50, y: 50 });
   });
 
-  it('should remove a player', () => {
-    store.addPlayer({ username: 'Cato' });
+  it('should remove a player by id', () => {
+    store.addPlayer({ username: 'Cato', id: 'uuid-cato' });
     expect(store.players().length).toBe(1);
-    
-    store.removePlayer('Cato');
+
+    store.removePlayerById('uuid-cato');
     expect(store.players().length).toBe(0);
   });
 });

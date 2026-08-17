@@ -1,57 +1,98 @@
-<div>
-  <h2>Battle Tanks - Waiting Room</h2>
+<div class="glass-container">
+  <h1 class="title">BATTLE TANKS HEADQUARTERS</h1>
 
-  @if (!joined()) {
-    <div>
-      <input
-        type="text"
-        [formField]="usernameForm.username"
-        placeholder="Enter your name"
-        (keyup.enter)="join()"
-      />
-      @if (usernameForm.username().touched() && usernameForm.username().invalid()) {
-        @for (error of usernameForm.username().errors(); track error) {
-          <p style="color: red;">{{ error.message }}</p>
-        }
+  <div class="dashboard-grid">
+    <!-- Left Column: Rooms & Game Setup -->
+    <div class="main-column">
+      @if (!joined()) {
+        <div class="glass-card">
+          <h3>AVAILABLE COMBAT ZONES</h3>
+          
+          <div class="create-room-form">
+            <input type="text" [formField]="mapNameForm.mapName" placeholder="Enter Map Name (e.g. Desert Arena)" />
+            <button class="btn-primary" (click)="createRoom()" [disabled]="isLoading()">CREATE ZONE</button>
+          </div>
+
+          @if (errorMsg()) {
+            <p class="error-text">{{ errorMsg() }}</p>
+          }
+
+          <div class="rooms-list">
+            @for (room of availableRooms(); track room.id) {
+              <div class="room-item">
+                <div class="room-info">
+                  <h4>{{ room.mapName }}</h4>
+                  <p>Players: {{ room.currentPlayers }} / {{ room.maxPlayers }}</p>
+                </div>
+                <button class="btn-primary" (click)="joinRoom(room.id)" [disabled]="isLoading() || room.currentPlayers >= room.maxPlayers">
+                  JOIN
+                </button>
+              </div>
+            } @empty {
+              <p style="color: #64748b; margin-top: 10px;">No combat zones available. Create one to start.</p>
+            }
+          </div>
+        </div>
+      } @else {
+        <div class="glass-card" style="text-align: center;">
+          <h3>DEPLOYMENT AUTHORIZED</h3>
+          <p style="margin: 20px 0; font-size: 1.1rem; color: #94a3b8;">
+            You have successfully joined the combat zone. Waiting for all commanders...
+          </p>
+          
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn-primary" (click)="runBenchmark()">
+              RUN BENCHMARK
+            </button>
+            <button routerLink="/game" [queryParams]="{ username: currentUsername() }" class="btn-success" style="margin-top: 0;">
+              LAUNCH BATTLE TANKS
+            </button>
+          </div>
+        </div>
       }
-      <button (click)="join()">Join</button>
-    </div>
-  } @else {
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <p>You joined as <strong>{{ usernameModel().username }}</strong></p>
-      <button routerLink="/game" [queryParams]="{ username: usernameModel().username }" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Start Game</button>
     </div>
 
-    <!-- Real-time Chat Section -->
-    <div style="margin-top: 20px; border-top: 1px solid #ccc; padding-top: 15px;">
-      <h3>Real-time Chat</h3>
-      <div style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;">
-        @for (msg of chatMessages(); track $index) {
-          <p style="margin: 4px 0;"><strong>{{ msg.username }}:</strong> {{ msg.text }}</p>
-        } @empty {
-          <p style="color: #888;">No chat messages yet.</p>
-        }
+    <!-- Right Column: Chat & Players -->
+    <div class="side-column">
+      <div class="glass-card" style="margin-bottom: 20px;">
+        <h3>CONNECTED COMMANDERS ({{ playerStore.players().length }})</h3>
+        <ul class="players-list">
+          @for (player of playerStore.players(); track player.username) {
+            <li>{{ player.username }}</li>
+          } @empty {
+            <li>No commanders connected yet.</li>
+          }
+        </ul>
       </div>
 
-      <div>
-        <input
-          type="text"
-          [value]="chatInput()"
-          (input)="chatInput.set($any($event.target).value)"
-          placeholder="Type a message..."
-          (keyup.enter)="sendChat()"
-        />
-        <button (click)="sendChat()">Send</button>
+      <div class="glass-card">
+        <h3>GLOBAL COMMS</h3>
+        <div class="chat-box">
+          <div class="chat-messages">
+            @for (msg of playerStore.chatMessages(); track $index) {
+              <div class="chat-msg">
+                <strong>{{ msg.username }}:</strong> {{ msg.text }}
+              </div>
+            } @empty {
+              <p style="color: #64748b; font-size: 0.9rem; text-align: center; margin-top: 20px;">
+                Secure comms channel opened.
+              </p>
+            }
+          </div>
+          
+          <div class="chat-input-group">
+            <input
+              type="text"
+              [value]="chatInput()"
+              (input)="chatInput.set($any($event.target).value)"
+              placeholder="Transmit message..."
+              (keyup.enter)="sendChat()"
+              [disabled]="!joined()"
+            />
+            <button (click)="sendChat()" [disabled]="!joined()">SEND</button>
+          </div>
+        </div>
       </div>
     </div>
-  }
-
-  <h3>Connected players ({{ playerStore.players().length }})</h3>
-  <ul>
-    @for (player of playerStore.players(); track player.username) {
-      <li>{{ player.username }}</li>
-    } @empty {
-      <li>Waiting for players...</li>
-    }
-  </ul>
+  </div>
 </div>

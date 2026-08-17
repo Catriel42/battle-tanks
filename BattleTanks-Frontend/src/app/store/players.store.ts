@@ -1,6 +1,6 @@
 import { computed, inject } from '@angular/core';
 import { signalStore, withState, withMethods, withComputed, patchState, withHooks } from '@ngrx/signals';
-import { PlayerInfo, PlayerPosition } from '../models';
+import { PlayerInfo, PlayerPosition, ChatMessage } from '../models';
 import { Game } from '../services/game';
 
 export type PlayerStatus = 'Alive' | 'Dead';
@@ -15,12 +15,14 @@ export type PlayersState = {
   players: PlayerState[];
   localPlayerId: string | null;
   localUsername: string | null;
+  chatMessages: ChatMessage[];
 };
 
 const initialState: PlayersState = {
   players: [],
   localPlayerId: null,
   localUsername: null,
+  chatMessages: [],
 };
 
 const MAX_HEALTH = 3;
@@ -90,6 +92,11 @@ export const PlayerStore = signalStore(
     getPlayerStatus(health: number): PlayerStatus {
       return health > 0 ? 'Alive' : 'Dead';
     },
+    addChatMessage(message: ChatMessage): void {
+      patchState(store, (state) => ({
+        chatMessages: [...state.chatMessages, message],
+      }));
+    },
   })),
   withHooks({
     onInit(store) {
@@ -115,6 +122,10 @@ export const PlayerStore = signalStore(
         if (pos.id) {
           store.updatePlayerPosition(pos.id, pos);
         }
+      });
+
+      gameService.onChatMessage((msg) => {
+        store.addChatMessage(msg);
       });
     },
   })
