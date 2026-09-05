@@ -1,9 +1,111 @@
+@use '../../../styles/variables' as *;
+@use '../../../styles/mixins' as *;
+
 .game-layout {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  background-color: #000;
+  background-color: $color-bg-dark;
   min-height: 100vh;
-  padding: 20px;
+  padding: $space-4;
   gap: 0;
+  position: relative;
+}
+
+// ----------------
+// GAME OVER MODAL
+// ----------------
+
+.game-over-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  @include flex-center;
+  z-index: $z-modal;
+}
+
+.game-over-panel {
+  @include panel;
+  max-width: 500px;
+  width: 90%;
+  @include flex-column;
+  gap: $space-4;
+}
+
+.game-over-title {
+  @include text-xl;
+  text-align: center;
+  color: $color-primary;
+  @include section-divider;
+}
+
+.winner-box {
+  @include card-highlight;
+  text-align: center;
+  padding: $space-3;
+  
+  h2 {
+    @include text-sm;
+    color: $color-white;
+  }
+}
+
+.duration-row {
+  @include flex-between;
+  @include text-xs;
+  color: $color-black;
+  padding: $space-2 0;
+  border-bottom: $border-width-sm solid $color-black;
+}
+
+// ----------------
+// STATS TABLE
+// ----------------
+
+.stats-section {
+  @include flex-column;
+  gap: $space-1;
+}
+
+.stats-header {
+  display: grid;
+  grid-template-columns: 40px 1fr 30px 30px 40px 40px;
+  gap: $space-2;
+  @include text-xs;
+  color: $color-black;
+  padding: $space-2;
+  border-bottom: $border-width-md solid $color-black;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 30px 30px 40px 40px;
+  gap: $space-2;
+  @include card-dark;
+  @include text-xs;
+  align-items: center;
+  
+  &.local {
+    @include card-highlight;
+  }
+  
+  .rank {
+    text-align: center;
+    color: $color-yellow;
+  }
+  
+  .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.btn-primary {
+  @include btn-primary;
+  width: 100%;
+  margin-top: $space-4;
 }
