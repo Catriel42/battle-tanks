@@ -15,15 +15,18 @@ public class GameHub : Hub
 {
     private readonly GameRoomManager _roomManager;
     private readonly BattleTanksDbContext _dbContext;
+    private readonly EventHistoryService _historyService;
     private readonly ILogger<GameHub> _logger;
     
     public GameHub(
         GameRoomManager roomManager, 
         BattleTanksDbContext dbContext,
+        EventHistoryService historyService,
         ILogger<GameHub> logger)
     {
         _roomManager = roomManager;
         _dbContext = dbContext;
+        _historyService = historyService;
         _logger = logger;
     }
     
@@ -514,5 +517,26 @@ public class GameHub : Hub
             tank.IsAlive,
             tank.IsEliminated
         );
+    }
+    
+    public async Task GetEventHistory()
+    {
+        var roomId = _roomManager.GetRoomForConnection(Context.ConnectionId);
+        if (roomId == null)
+        {
+            await SendError("NOT_IN_ROOM", "You are not in a room");
+            return;
+        }
+        
+        var history = await _historyService.GetHistoryAsync(roomId, count: 50);
+        
+        await Clients.Caller.SendAsync("EventHistory", new
+        {
+            RoomId = roomId,
+            Events = history,
+            ReceivedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        });
+        
+        _logger.LogDebug("Retrieved event history for room {RoomId} ({EventCount} events)", roomId, history.Count);
     }
 }
