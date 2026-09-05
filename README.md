@@ -60,10 +60,11 @@ docker compose up -d
 
 ### 2. Run the Backend
 
-The backend applies database migrations automatically on startup.
+You must apply database migrations manually before the first run.
 
 ```bash
 cd BattleTanks-Backend
+dotnet ef database update
 dotnet run
 ```
 
@@ -87,7 +88,7 @@ The application will be available at `http://localhost:4200`.
 | :--- | :--- | :--- |
 | Frontend SPA | <http://localhost:4200> | - |
 | Backend API | <http://localhost:5000> | - |
-| SignalR Hub | ws://localhost:5000/gamehub | - |
+| SignalR Hub | <http://localhost:5000/gamehub> | - |
 | PostgreSQL | localhost:5432 | user: `battletanks` / pass: `battletanks` |
 | pgAdmin | <http://localhost:8081> | email: `admin@battletanks.com` / pass: `admin` |
 
@@ -100,6 +101,7 @@ The application will be available at `http://localhost:4200`.
 | `docker compose up -d` | Root | Start all infrastructure services. |
 | `docker compose down` | Root | Stop containers (data is preserved). |
 | `docker compose down -v` | Root | Stop containers and delete all data. |
+| `dotnet ef database update` | `BattleTanks-Backend/` | Apply pending EF Core migrations to the database. |
 | `dotnet run` | `BattleTanks-Backend/` | Start the backend API. |
 | `dotnet watch run` | `BattleTanks-Backend/` | Start backend with hot reload. |
 | `ng serve` | `BattleTanks-Frontend/` | Start the Angular dev server. |
