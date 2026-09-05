@@ -297,12 +297,14 @@ export class GameCanvas {
       this.drawFinishedScreen();
       return;
     }
-
     // Draw map
     this.drawMap();
     
     // Draw tanks
     this.drawTanks();
+    
+    // Draw power-ups
+    this.drawPowerUps();
     
     // Draw bullets
     this.drawBullets();
@@ -470,13 +472,37 @@ export class GameCanvas {
       if (this.bulletImg.complete) {
         this.ctx.drawImage(this.bulletImg, screenX, screenY, this.bulletSize, this.bulletSize);
       } else {
-        // Fallback if image not loaded
         this.ctx.fillStyle = '#ff0';
         this.ctx.beginPath();
         this.ctx.arc(screenX + this.bulletSize / 2, screenY + this.bulletSize / 2, this.bulletSize / 2, 0, Math.PI * 2);
         this.ctx.fill();
       }
     }
+  }
+
+  private drawPowerUps(): void {
+    const powerUps = this.gameService.powerUps();
+    const powerUpSize = 30;
+    
+    powerUps.forEach((powerUp) => {
+      if (powerUp.isCollected) return;
+      
+      const screenX = powerUp.x - this.cameraX;
+      const screenY = powerUp.y - this.cameraY;
+      
+      this.ctx.fillStyle = '#b00000';
+      this.ctx.fillRect(screenX, screenY, powerUpSize, powerUpSize);
+      
+      this.ctx.strokeStyle = '#ffffff';
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeRect(screenX, screenY, powerUpSize, powerUpSize);
+      
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.font = 'bold 16px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText('♥', screenX + powerUpSize / 2, screenY + powerUpSize / 2);
+    });
   }
 
   private drawExplosions(): void {
