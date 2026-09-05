@@ -1,0 +1,211 @@
+// ============================================
+// BATTLE TANKS - Mixins & Utilities
+// ============================================
+
+@use 'variables' as *;
+
+// ----------------
+// TYPOGRAPHY
+// ----------------
+
+@mixin font-retro {
+  font-family: $font-family-primary;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+@mixin text-xs { font-size: $font-size-xs; }
+@mixin text-sm { font-size: $font-size-sm; }
+@mixin text-base { font-size: $font-size-base; }
+@mixin text-md { font-size: $font-size-md; }
+@mixin text-lg { font-size: $font-size-lg; }
+@mixin text-xl { font-size: $font-size-xl; }
+@mixin text-2xl { font-size: $font-size-2xl; }
+@mixin text-3xl { font-size: $font-size-3xl; }
+
+// ----------------
+// LAYOUT
+// ----------------
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+// ----------------
+// COMPONENTS
+// ----------------
+
+// Retro panel (like the HUD)
+@mixin panel {
+  background-color: $color-bg-panel;
+  border: $border-width-md solid $border-color;
+  padding: $space-4;
+}
+
+// Dark card
+@mixin card-dark {
+  background-color: $color-black;
+  color: $color-white;
+  padding: $space-2;
+}
+
+// Highlighted card (for local player, etc)
+@mixin card-highlight {
+  background-color: $color-primary;
+  border: $border-width-sm solid $color-white;
+  color: $color-white;
+  padding: $space-2;
+}
+
+// Section with bottom border
+@mixin section-divider {
+  padding-bottom: $space-3;
+  border-bottom: $border-width-md solid $border-color;
+  margin-bottom: $space-4;
+}
+
+// ----------------
+// BUTTONS
+// ----------------
+
+@mixin btn-base {
+  @include font-retro;
+  @include text-sm;
+  padding: $space-3 $space-4;
+  border: $border-width-md solid $color-black;
+  cursor: pointer;
+  transition: $transition-fast;
+  text-align: center;
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  &:hover:not(:disabled) {
+    transform: translate(-2px, -2px);
+    box-shadow: $shadow-hard-sm;
+  }
+  
+  &:active:not(:disabled) {
+    transform: translate(0, 0);
+    box-shadow: none;
+  }
+}
+
+@mixin btn-primary {
+  @include btn-base;
+  background-color: $color-primary;
+  color: $color-white;
+}
+
+@mixin btn-success {
+  @include btn-base;
+  background-color: $color-success;
+  color: $color-white;
+}
+
+@mixin btn-secondary {
+  @include btn-base;
+  background-color: $color-gray;
+  color: $color-black;
+}
+
+@mixin btn-small {
+  @include btn-base;
+  @include text-xs;
+  padding: $space-2 $space-3;
+  border-width: $border-width-sm;
+}
+
+// ----------------
+// FORM INPUTS
+// ----------------
+
+@mixin input-base {
+  @include font-retro;
+  @include text-xs;
+  background-color: $color-bg-input;
+  color: $color-white;
+  border: $border-width-sm solid $color-white;
+  padding: $space-3;
+  outline: none;
+  
+  &:focus {
+    border-color: $color-yellow;
+  }
+  
+  &::placeholder {
+    color: $color-dark-gray;
+  }
+}
+
+// ----------------
+// SCROLLBAR
+// ----------------
+
+@mixin scrollbar-retro {
+  &::-webkit-scrollbar {
+    width: 12px;
+    background-color: $color-dark-gray;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background-color: $color-gray;
+    border: 2px solid $color-dark-gray;
+    
+    &:hover {
+      background-color: $color-light-gray;
+    }
+  }
+  
+  &::-webkit-scrollbar-corner {
+    background-color: $color-dark-gray;
+  }
+}
+
+// ----------------
+// RESPONSIVE
+// ----------------
+
+$breakpoint-sm: 640px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 1024px;
+$breakpoint-xl: 1280px;
+
+@mixin mobile {
+  @media (max-width: $breakpoint-md) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media (max-width: $breakpoint-lg) {
+    @content;
+  }
+}
+
+// ----------------
+// STATUS COLORS
+// ----------------
+
+@mixin status-alive {
+  color: $color-green;
+}
+
+@mixin status-dead {
+  color: $color-red-light;
+}
