@@ -25,6 +25,7 @@ public class GameRoomState
     // Players and projectiles
     public ConcurrentDictionary<string, TankState> Tanks { get; } = new();
     public ConcurrentBag<BulletState> Bullets { get; private set; } = [];
+    public ConcurrentBag<PowerUpState> PowerUps { get; private set; } = [];
     
     // Host tracking - the first player to join is the host
     public string? HostConnectionId { get; set; }
@@ -53,6 +54,11 @@ public class GameRoomState
     
     // Elimination order tracking (for final positions)
     public List<string> EliminationOrder { get; } = [];
+    
+    // Power-up tracking
+    public DateTime NextPowerUpSpawn { get; set; } = DateTime.UtcNow;
+    public const int MaxPowerUpsOnMap = 2;
+    public const int PowerUpSpawnIntervalSeconds = 15;
     
     public void InitializeSpawnPoints()
     {
@@ -180,5 +186,16 @@ public class GameRoomState
     {
         var newBullets = new ConcurrentBag<BulletState>(Bullets.Where(b => b.Id != bullet.Id));
         Bullets = newBullets;
+    }
+    
+    public void ClearPowerUps()
+    {
+        PowerUps = [];
+    }
+    
+    public void RemovePowerUp(Guid powerUpId)
+    {
+        var newPowerUps = new ConcurrentBag<PowerUpState>(PowerUps.Where(p => p.Id != powerUpId));
+        PowerUps = newPowerUps;
     }
 }

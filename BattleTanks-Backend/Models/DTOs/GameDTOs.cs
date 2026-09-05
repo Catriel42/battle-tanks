@@ -167,9 +167,44 @@ public record ChatMessageDto(
 );
 
 public record ChatMessageEvent(
-    string Username,
+     string Username,
     string Text,
     long Timestamp
+);
+
+// ==================== MQTT Events ====================
+
+public record PowerUpSpawnedEvent(
+    Guid Id,
+    string Type,
+    double X,
+    double Y,
+    long Timestamp,
+    long SentAt = 0
+);
+
+public record PowerUpCollectedEvent(
+    Guid Id,
+    string PlayerId,
+    string Username,
+    int NewLives,
+    long Timestamp,
+    long SentAt = 0
+);
+
+public record MqttCollisionEvent(
+    string AttackerId,
+    string VictimId,
+    int Damage,
+    long Timestamp,
+    long SentAt = 0
+);
+
+public record MqttGameOverEvent(
+    string WinnerId,
+    string WinnerUsername,
+    long Timestamp,
+    long SentAt = 0
 );
 
 // ==================== Error Events ====================
