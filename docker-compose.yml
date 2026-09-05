@@ -36,7 +36,26 @@ services:
       - redis_data:/data
     command: redis-server --appendonly yes
 
+  emqx:
+    image: emqx/emqx:5.8
+    container_name: battletanks-emqx
+    restart: unless-stopped
+    environment:
+      EMQX_NAME: battletanks-broker
+      EMQX_HOST: node1.emqx.local
+      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: public
+    ports:
+      - "1883:1883"      # MQTT TCP
+      - "8083:8083"      # MQTT WebSocket
+      - "18083:18083"    # Dashboard HTTP
+    volumes:
+      - emqx_data:/opt/emqx/data
+      - emqx_log:/opt/emqx/log
+
 volumes:
   postgres_data:
   pgadmin_data:
   redis_data:
+  emqx_data:
+  emqx_log:
