@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Scalar.AspNetCore;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,9 +16,19 @@ builder.WebHost.UseUrls("http://localhost:5000");
 builder.Services.AddDbContext<BattleTanksDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Redis
+var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp => 
+    ConnectionMultiplexer.Connect(redisConnection));
+builder.Services.AddSingleton<EventHistoryService>();
+
 // Game Services
 builder.Services.AddSingleton<GameRoomManager>();
 builder.Services.AddHostedService<GameLoopService>();
+
+// MQTT Publisher
+builder.Services.AddSingleton<MqttPublisherService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<MqttPublisherService>());
 
 // SignalR
 builder.Services.AddSignalR(options =>
