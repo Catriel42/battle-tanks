@@ -3,6 +3,7 @@ import * as signalR from '@microsoft/signalr';
 import { Subject } from 'rxjs';
 
 import { AuthService } from './auth.service';
+import { MqttClientService } from './mqtt-client.service';
 import {
   PlayerInputDto,
   GameStateSnapshot,
@@ -26,12 +27,14 @@ import {
   Direction,
   GameStatus,
 } from '../models';
+import { PowerUpState, PowerUpSpawnedEvent, PowerUpCollectedEvent } from '../models/powerup.models';
 
 @Injectable({
   providedIn: 'root'
 })
 export class GameService {
   private authService = inject(AuthService);
+  private mqttService = inject(MqttClientService);
   
   private hubConnection: signalR.HubConnection | null = null;
   private readonly HUB_URL = 'http://localhost:5000/gamehub';
@@ -56,6 +59,9 @@ export class GameService {
   private _mapWidth = signal(30);
   private _mapHeight = signal(20);
   
+  // Power-ups
+  private _powerUps = signal<Map<string, PowerUpState>>(new Map());
+  
   // Computed signals
   readonly isConnected = this._isConnected.asReadonly();
   readonly connectionId = this._connectionId.asReadonly();
@@ -71,6 +77,7 @@ export class GameService {
   readonly mapGrid = this._mapGrid.asReadonly();
   readonly mapWidth = this._mapWidth.asReadonly();
   readonly mapHeight = this._mapHeight.asReadonly();
+  readonly powerUps = this._powerUps.asReadonly();
   
   // Local tank (computed from tanks array)
   readonly localTank = computed(() => {
@@ -197,6 +204,17 @@ export class GameService {
     if (!this.hubConnection) {
       throw new Error('Not connected');
     }
+    
+    this._currentRoomId.set(roomId);
+    
+    this.subscribeMqttEvents(roomId);
+    
+    try {
+      await this.hubConnection.invoke('GetEventHistory');
+    } catch (e) {
+      console.warn('[GameService] Failed to get event history:', e);
+    }
+    
     await this.hubConnection.invoke('JoinRoom', roomId);
   }
   
@@ -205,9 +223,16 @@ export class GameService {
    */
   async leaveRoom(): Promise<void> {
     if (!this.hubConnection) return;
+    
+    const roomId = this._currentRoomId();
     await this.hubConnection.invoke('LeaveRoom');
     this._currentRoomId.set(null);
     this._roomStatus.set('waiting');
+    this._powerUps.set(new Map());
+    
+    if (roomId) {
+      this.mqttService.unsubscribeFromRoom(roomId);
+    }
   }
   
   /**
@@ -437,6 +462,24 @@ export class GameService {
     this.hubConnection.on('ChatMessage', (event: { username: string; text: string; timestamp: number }) => {
       this.chatMessage$.next(event);
     });
+    
+    // Event history (from Redis - for recovery and benchmarking)
+    this.hubConnection.on('EventHistory', (data: any) => {
+      console.log('[GameService] Received event history:', data.Events?.length || 0, 'events');
+      // Events are stored for potential recovery or analysis
+      // For benchmarking, calculate latency: receivedAt - sent_at from each event
+      if (data.Events && data.Events.length > 0) {
+        data.Events.forEach((eventJson: string) => {
+          try {
+            const event = JSON.parse(eventJson);
+            const latency = data.ReceivedAt - event.sent_at;
+            console.debug('[GameService] Event latency:', event.type, latency + 'ms');
+          } catch (e) {
+            console.warn('[GameService] Failed to parse event from history', e);
+          }
+        });
+      }
+    });
   }
   
   private resetState(): void {
@@ -453,7 +496,31 @@ export class GameService {
     this._bullets.set([]);
     this._destroyedBlocks.set(new Set());
     this._mapGrid.set([]);
+    this._powerUps.set(new Map());
     this._isHost.set(false);
     this.inputSequence = 0;
   }
+  
+  private subscribeMqttEvents(roomId: string): void {
+    this.mqttService.subscribeToPowerUpSpawned(roomId).subscribe((event: PowerUpSpawnedEvent) => {
+      const map = new Map(this._powerUps());
+      map.set(event.id, {
+        id: event.id,
+        type: 'ExtraLife',
+        x: event.x,
+        y: event.y,
+        isCollected: false
+      });
+      this._powerUps.set(map);
+      console.log('[GameService] Power-up spawned:', event);
+    });
+    
+    this.mqttService.subscribeToPowerUpCollected(roomId).subscribe((event: PowerUpCollectedEvent) => {
+      const map = new Map(this._powerUps());
+      map.delete(event.id);
+      this._powerUps.set(map);
+      console.log('[GameService] Power-up collected by', event.username, '- New lives:', event.new_lives);
+    });
+  }
 }
+
