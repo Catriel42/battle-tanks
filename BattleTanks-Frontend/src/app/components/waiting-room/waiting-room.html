@@ -1,98 +1,211 @@
-<div class="glass-container">
-  <h1 class="title">BATTLE TANKS HEADQUARTERS</h1>
+<div class="hq-container">
+  <h1 class="hq-title">Battle Tanks HQ</h1>
 
-  <div class="dashboard-grid">
-    <!-- Left Column: Rooms & Game Setup -->
-    <div class="main-column">
-      @if (!joined()) {
-        <div class="glass-card">
-          <h3>AVAILABLE COMBAT ZONES</h3>
-          
-          <div class="create-room-form">
-            <input type="text" [formField]="mapNameForm.mapName" placeholder="Enter Map Name (e.g. Desert Arena)" />
-            <button class="btn-primary" (click)="createRoom()" [disabled]="isLoading()">CREATE ZONE</button>
+  @if (!isConnected()) {
+    <div class="panel loading-panel">
+      <p>Connecting to server...</p>
+    </div>
+  } @else {
+    <div class="hq-grid">
+      <!-- Main Column -->
+      <div class="main-column">
+        @if (!isInRoom()) {
+          <!-- Create Room Panel -->
+          <div class="panel">
+            <h2 class="panel-title">Create Zone</h2>
+            
+            <div class="form-stack">
+              <div class="form-group">
+                <label>Select Map</label>
+                <div class="map-list">
+                  @for (map of availableMaps(); track map.id) {
+                    <button 
+                      class="map-btn"
+                      [class.selected]="selectedMapId() === map.id"
+                      (click)="selectMap(map.id)">
+                      {{ map.name }}
+                    </button>
+                  } @empty {
+                    <p class="muted">Loading...</p>
+                  }
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Players</label>
+                  <div class="counter">
+                    <button class="counter-btn" (click)="setMaxPlayers(maxPlayers() - 1)">-</button>
+                    <span class="counter-value">{{ maxPlayers() }}</span>
+                    <button class="counter-btn" (click)="setMaxPlayers(maxPlayers() + 1)">+</button>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>Lives</label>
+                  <div class="counter">
+                    <button class="counter-btn" (click)="setLives(lives() - 1)">-</button>
+                    <span class="counter-value">{{ lives() }}</span>
+                    <button class="counter-btn" (click)="setLives(lives() + 1)">+</button>
+                  </div>
+                </div>
+              </div>
+
+              <button class="btn-primary" (click)="createRoom()" [disabled]="isLoading() || !selectedMapId()">
+                Create
+              </button>
+              
+              @if (errorMsg()) {
+                <div class="error-box">{{ errorMsg() }}</div>
+              }
+            </div>
           </div>
 
-          @if (errorMsg()) {
-            <p class="error-text">{{ errorMsg() }}</p>
-          }
-
-          <div class="rooms-list">
-            @for (room of availableRooms(); track room.id) {
-              <div class="room-item">
-                <div class="room-info">
-                  <h4>{{ room.mapName }}</h4>
-                  <p>Players: {{ room.currentPlayers }} / {{ room.maxPlayers }}</p>
+          <!-- Rooms List Panel -->
+          <div class="panel">
+            <div class="panel-header">
+              <h2 class="panel-title">Open Zones</h2>
+              <button class="btn-small" (click)="refreshRooms()">Refresh</button>
+            </div>
+            
+            <div class="rooms-list">
+              @for (room of availableRooms(); track room.id) {
+                <div class="room-row">
+                  <div class="room-info">
+                    <span class="room-name">{{ room.mapName }}</span>
+                    <span class="room-meta">{{ room.currentPlayers }}/{{ room.maxPlayers }} - {{ room.lives }} lives</span>
+                  </div>
+                  <button 
+                    class="btn-small" 
+                    (click)="joinRoom(room.id)" 
+                    [disabled]="isLoading() || room.currentPlayers >= room.maxPlayers">
+                    Join
+                  </button>
                 </div>
-                <button class="btn-primary" (click)="joinRoom(room.id)" [disabled]="isLoading() || room.currentPlayers >= room.maxPlayers">
-                  JOIN
+              } @empty {
+                <p class="muted">No zones available</p>
+              }
+            </div>
+          </div>
+        } @else {
+          <!-- In Room / Lobby -->
+          <div class="panel">
+            @if (countdown() !== null) {
+              <div class="countdown">
+                <h2>Starting in</h2>
+                <div class="countdown-num">{{ countdown() }}</div>
+              </div>
+            } @else {
+              <h2 class="panel-title">Lobby</h2>
+              
+              <div class="players-list">
+                @for (player of roomPlayers(); track player.playerId) {
+                  <div class="player-row" [class.host]="player.isHost">
+                    <span class="player-name">{{ player.username }}</span>
+                    @if (player.isHost) {
+                      <span class="badge">Host</span>
+                    }
+                  </div>
+                }
+                
+                @for (i of [].constructor(4 - roomPlayers().length); track $index) {
+                  <div class="player-row empty">
+                    <span class="player-name">Waiting...</span>
+                  </div>
+                }
+              </div>
+
+              <div class="lobby-actions">
+                @if (isHost()) {
+                  <button 
+                    class="btn-success" 
+                    (click)="startGame()" 
+                    [disabled]="!canStartGame() || isLoading()">
+                    Start Game
+                  </button>
+                  @if (!canStartGame()) {
+                    <p class="muted">Need 2+ players</p>
+                  }
+                } @else {
+                  <p class="muted">Waiting for host...</p>
+                }
+                
+                <button class="btn-secondary" (click)="leaveRoom()" [disabled]="isLoading()">
+                  Leave
                 </button>
               </div>
-            } @empty {
-              <p style="color: #64748b; margin-top: 10px;">No combat zones available. Create one to start.</p>
             }
           </div>
-        </div>
-      } @else {
-        <div class="glass-card" style="text-align: center;">
-          <h3>DEPLOYMENT AUTHORIZED</h3>
-          <p style="margin: 20px 0; font-size: 1.1rem; color: #94a3b8;">
-            You have successfully joined the combat zone. Waiting for all commanders...
-          </p>
-          
-          <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button class="btn-primary" (click)="runBenchmark()">
-              RUN BENCHMARK
-            </button>
-            <button routerLink="/game" [queryParams]="{ username: currentUsername() }" class="btn-success" style="margin-top: 0;">
-              LAUNCH BATTLE TANKS
-            </button>
-          </div>
-        </div>
-      }
-    </div>
+        }
+      </div>
 
-    <!-- Right Column: Chat & Players -->
-    <div class="side-column">
-      <div class="glass-card" style="margin-bottom: 20px;">
-        <h3>CONNECTED COMMANDERS ({{ playerStore.players().length }})</h3>
-        <ul class="players-list">
-          @for (player of playerStore.players(); track player.username) {
-            <li>{{ player.username }}</li>
-          } @empty {
-            <li>No commanders connected yet.</li>
+      <!-- Side Column -->
+      <div class="side-column">
+        <!-- Status Panel -->
+        <div class="panel">
+          <h2 class="panel-title">Status</h2>
+          <div class="info-row">
+            <span>User</span>
+            <span>{{ currentUsername() }}</span>
+          </div>
+          <div class="info-row">
+            <span>Server</span>
+            <span [class.online]="isConnected()">{{ isConnected() ? 'Online' : 'Offline' }}</span>
+          </div>
+          @if (isInRoom()) {
+            <div class="info-row">
+              <span>Role</span>
+              <span>{{ isHost() ? 'Host' : 'Player' }}</span>
+            </div>
           }
-        </ul>
-      </div>
-
-      <div class="glass-card">
-        <h3>GLOBAL COMMS</h3>
-        <div class="chat-box">
-          <div class="chat-messages">
-            @for (msg of playerStore.chatMessages(); track $index) {
-              <div class="chat-msg">
-                <strong>{{ msg.username }}:</strong> {{ msg.text }}
-              </div>
-            } @empty {
-              <p style="color: #64748b; font-size: 0.9rem; text-align: center; margin-top: 20px;">
-                Secure comms channel opened.
-              </p>
-            }
-          </div>
-          
-          <div class="chat-input-group">
-            <input
-              type="text"
-              [value]="chatInput()"
-              (input)="chatInput.set($any($event.target).value)"
-              placeholder="Transmit message..."
-              (keyup.enter)="sendChat()"
-              [disabled]="!joined()"
-            />
-            <button (click)="sendChat()" [disabled]="!joined()">SEND</button>
-          </div>
         </div>
+
+        @if (isInRoom()) {
+          <!-- Chat Panel -->
+          <div class="panel chat-panel">
+            <h2 class="panel-title">Chat</h2>
+            <div class="chat-messages" #chatMessagesContainer>
+              @for (msg of chatMessages(); track $index) {
+                <div class="chat-msg">
+                  <span class="chat-user">{{ msg.username }}:</span>
+                  <span class="chat-text">{{ msg.text }}</span>
+                </div>
+              } @empty {
+                <p class="muted">No messages</p>
+              }
+            </div>
+            
+            <div class="chat-input">
+              <input
+                type="text"
+                [value]="chatInput()"
+                (input)="chatInput.set($any($event.target).value)"
+                placeholder="Message..."
+                (keyup.enter)="sendChat()"
+                maxlength="500"
+              />
+              <button class="btn-small" (click)="sendChat()" [disabled]="!chatInput().trim()">Send</button>
+            </div>
+          </div>
+        } @else {
+          <!-- Controls Panel -->
+          <div class="panel">
+            <h2 class="panel-title">Controls</h2>
+            <div class="info-row">
+              <span>Move</span>
+              <span>WASD</span>
+            </div>
+            <div class="info-row">
+              <span>Fire</span>
+              <span>Space</span>
+            </div>
+            <div class="info-row">
+              <span>Goal</span>
+              <span>Survive</span>
+            </div>
+          </div>
+        }
       </div>
     </div>
-  </div>
+  }
 </div>
