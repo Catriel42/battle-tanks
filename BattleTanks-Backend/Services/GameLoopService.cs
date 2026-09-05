@@ -10,15 +10,12 @@ using System.Diagnostics;
 
 namespace BattleTanks_Backend.Services;
 
-/// <summary>
-/// Background service that runs the game loop at 60 ticks per second.
-/// Handles physics updates and broadcasts state to clients.
-/// </summary>
 public class GameLoopService : BackgroundService
 {
     private readonly GameRoomManager _roomManager;
     private readonly IHubContext<GameHub> _hubContext;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly MqttPublisherService _mqttPublisher;
     private readonly ILogger<GameLoopService> _logger;
     
     private readonly Dictionary<string, int> _countdowns = new();
@@ -28,11 +25,13 @@ public class GameLoopService : BackgroundService
         GameRoomManager roomManager,
         IHubContext<GameHub> hubContext,
         IServiceScopeFactory scopeFactory,
+        MqttPublisherService mqttPublisher,
         ILogger<GameLoopService> logger)
     {
         _roomManager = roomManager;
         _hubContext = hubContext;
         _scopeFactory = scopeFactory;
+        _mqttPublisher = mqttPublisher;
         _logger = logger;
     }
     
@@ -163,40 +162,58 @@ public class GameLoopService : BackgroundService
     {
         var group = _hubContext.Clients.Group(roomId);
         
-        // Broadcast hit events
         foreach (var hit in physics.HitEvents)
         {
             await group.SendAsync("PlayerHit", hit);
         }
         
-        // Broadcast kill events
         foreach (var kill in physics.KillEvents)
         {
             await group.SendAsync("PlayerKilled", kill);
         }
         
-        // Broadcast elimination events
         foreach (var elimination in physics.EliminationEvents)
         {
             await group.SendAsync("PlayerEliminated", elimination);
         }
         
-        // Broadcast respawn events
         foreach (var respawn in physics.RespawnEvents)
         {
             await group.SendAsync("PlayerRespawned", respawn);
         }
         
-        // Broadcast block destroyed events
         foreach (var block in physics.BlockDestroyedEvents)
         {
             await group.SendAsync("BlockDestroyed", block);
         }
         
-        // Broadcast bullet fired events (optional - can be derived from state)
         foreach (var bullet in physics.BulletFiredEvents)
         {
             await group.SendAsync("BulletFired", bullet);
+        }
+        
+        foreach (var powerUpEvent in physics.PowerUpSpawnedEvents)
+        {
+            await _mqttPublisher.PublishPowerUpSpawnedAsync(
+                roomId,
+                powerUpEvent.Id,
+                powerUpEvent.Type,
+                powerUpEvent.X,
+                powerUpEvent.Y,
+                powerUpEvent.Timestamp
+            );
+        }
+        
+        foreach (var powerUpEvent in physics.PowerUpCollectedEvents)
+        {
+            await _mqttPublisher.PublishPowerUpCollectedAsync(
+                roomId,
+                powerUpEvent.Id,
+                powerUpEvent.PlayerId,
+                powerUpEvent.Username,
+                powerUpEvent.NewLives,
+                powerUpEvent.Timestamp
+            );
         }
     }
     
