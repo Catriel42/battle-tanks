@@ -4,13 +4,10 @@ using System.Collections.Concurrent;
 
 namespace BattleTanks_Backend.Services.GameEngine;
 
-/// <summary>
-/// Handles all game physics and state updates for a single game room.
-/// This is the core game loop logic.
-/// </summary>
 public class GamePhysics
 {
     private readonly GameRoomState _room;
+    private readonly PowerUpManager _powerUpManager;
     private readonly ConcurrentQueue<PlayerInput> _inputQueue = new();
     
     // Events that occurred during the last tick
@@ -22,23 +19,24 @@ public class GamePhysics
     public List<BulletHitEvent> BulletHitEvents { get; } = [];
     public List<PlayerRespawnedEvent> RespawnEvents { get; } = [];
     
+    // Power-up events
+    public List<PowerUpSpawnedEvent> PowerUpSpawnedEvents => _powerUpManager.SpawnedEvents;
+    public List<PowerUpCollectedEvent> PowerUpCollectedEvents => _powerUpManager.CollectedEvents;
+    
     public GamePhysics(GameRoomState room)
     {
         _room = room;
+        _powerUpManager = new PowerUpManager(room);
     }
     
     public void QueueInput(PlayerInput input)
     {
-        // Limit queue size to prevent memory issues
         if (_inputQueue.Count < GameConstants.MaxInputQueueSize)
         {
             _inputQueue.Enqueue(input);
         }
     }
     
-    /// <summary>
-    /// Process one game tick. This is called 60 times per second.
-    /// </summary>
     public void Tick()
     {
         if (_room.Status != GameStatus.Playing)
@@ -51,6 +49,8 @@ public class GamePhysics
         UpdateTanks();
         
         UpdateBullets();
+        
+        _powerUpManager.TrySpawnPowerUp();
         
         CheckWinCondition();
         
@@ -66,6 +66,7 @@ public class GamePhysics
         BulletFiredEvents.Clear();
         BulletHitEvents.Clear();
         RespawnEvents.Clear();
+        _powerUpManager.ClearEvents();
     }
     
     private void ProcessInputs()
@@ -153,6 +154,8 @@ public class GamePhysics
                 tank.X = newX;
                 tank.Y = newY;
             }
+            
+            _powerUpManager.CheckCollection(tank);
         }
     }
     
