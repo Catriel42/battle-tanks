@@ -12,20 +12,25 @@ Angular 22 frontend for a multiplayer real-time tank battle game with server-aut
 ### Development Setup
 
 1. **Install dependencies:**
+
    ```bash
    npm install
    ```
 
 2. **Start development server:**
+
    ```bash
    npm start
    ```
+
    App will be available at `http://localhost:4200/`
 
 3. **Build for production:**
+
    ```bash
    npm run build
    ```
+
    Output: `dist/BattleTanks-Frontend/`
 
 ## Architecture
@@ -112,7 +117,7 @@ npm test -- --coverage
 ## Common Commands
 
 | Command | Purpose |
-|---------|---------|
+| --------- | --------- |
 | `npm start` | Dev server (ng serve) |
 | `npm run build` | Production build |
 | `npm test` | Run unit tests |
@@ -121,16 +126,19 @@ npm test -- --coverage
 ## Troubleshooting
 
 ### Dev server won't connect to backend
+
 - Ensure backend is running on `http://localhost:5000`
 - Check `environment.ts` for correct API URL
 - Verify SignalR hub is accessible
 
 ### Styles not applying
+
 - Confirm `src/styles/_variables.scss` and `_mixins.scss` exist
 - Check that component SCSS imports: `@use '../../../styles/variables' as *;`
 - Run `npm run build` to check for SCSS errors
 
 ### Port 4200 already in use
+
 ```bash
 ng serve --port 4300
 ```
