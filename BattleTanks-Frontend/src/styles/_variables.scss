@@ -1,0 +1,126 @@
+// ============================================
+// BATTLE TANKS - Design System Variables
+// Retro Arcade Aesthetic
+// ============================================
+
+// ----------------
+// COLOR PALETTE
+// ----------------
+
+// Base colors
+$color-black: #000000;
+$color-white: #ffffff;
+$color-gray: #7f7f7f;
+$color-dark-gray: #3f3f3f;
+$color-light-gray: #bfbfbf;
+
+// Accent colors
+$color-red: #b00000;
+$color-red-light: #ff5555;
+$color-green: #55ff55;
+$color-green-dark: #00b000;
+$color-yellow: #ffcc00;
+$color-blue: #5555ff;
+
+// Semantic colors
+$color-primary: $color-red;
+$color-success: $color-green-dark;
+$color-danger: $color-red-light;
+$color-warning: $color-yellow;
+
+// Background colors
+$color-bg-dark: $color-black;
+$color-bg-panel: $color-gray;
+$color-bg-card: $color-dark-gray;
+$color-bg-input: $color-black;
+
+// Text colors
+$color-text-primary: $color-black;
+$color-text-light: $color-white;
+$color-text-muted: $color-light-gray;
+
+// ----------------
+// TYPOGRAPHY
+// ----------------
+
+// Font family - Retro pixel font
+$font-family-primary: 'Press Start 2P', cursive;
+$font-url: 'https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap';
+
+// Font sizes (pixel-perfect scale)
+$font-size-xs: 8px;
+$font-size-sm: 10px;
+$font-size-base: 12px;
+$font-size-md: 14px;
+$font-size-lg: 16px;
+$font-size-xl: 20px;
+$font-size-2xl: 24px;
+$font-size-3xl: 32px;
+
+// Line heights
+$line-height-tight: 1.2;
+$line-height-normal: 1.5;
+$line-height-relaxed: 1.8;
+
+// ----------------
+// SPACING
+// ----------------
+
+$space-1: 4px;
+$space-2: 8px;
+$space-3: 12px;
+$space-4: 16px;
+$space-5: 20px;
+$space-6: 24px;
+$space-8: 32px;
+$space-10: 40px;
+$space-12: 48px;
+
+// ----------------
+// BORDERS
+// ----------------
+
+$border-width-sm: 2px;
+$border-width-md: 4px;
+$border-width-lg: 6px;
+
+$border-color: $color-black;
+$border-color-light: $color-white;
+$border-color-accent: $color-primary;
+
+// No border-radius in retro style (pixel-perfect squares)
+$border-radius: 0;
+
+// ----------------
+// SHADOWS
+// ----------------
+
+// Retro style uses hard shadows, not soft
+$shadow-hard: 4px 4px 0 $color-black;
+$shadow-hard-sm: 2px 2px 0 $color-black;
+$shadow-inset: inset 2px 2px 0 rgba(0, 0, 0, 0.3);
+
+// ----------------
+// TRANSITIONS
+// ----------------
+
+// Minimal transitions for retro feel
+$transition-fast: 0.1s ease;
+$transition-normal: 0.2s ease;
+
+// ----------------
+// LAYOUT
+// ----------------
+
+$container-max-width: 1200px;
+$sidebar-width: 220px;
+$header-height: 60px;
+
+// ----------------
+// Z-INDEX
+// ----------------
+
+$z-dropdown: 100;
+$z-modal-backdrop: 900;
+$z-modal: 1000;
+$z-tooltip: 1100;

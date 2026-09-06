@@ -1,0 +1,49 @@
+<div class="auth-container">
+  <div class="auth-panel">
+    <h1 class="auth-title">Battle Tanks</h1>
+    <p class="auth-subtitle">Access Terminal</p>
+    
+    <form (ngSubmit)="onSubmit()" class="auth-form">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input 
+          type="text" 
+          id="username"
+          [(ngModel)]="username" 
+          name="username" 
+          required 
+          autocomplete="off" 
+          placeholder="Enter callsign..."
+        />
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input 
+          type="password" 
+          id="password"
+          [(ngModel)]="password" 
+          name="password" 
+          required 
+          placeholder="Enter code..."
+        />
+      </div>
+      
+      @if (errorMsg()) {
+        <div class="error-box">{{ errorMsg() }}</div>
+      }
+      
+      <button type="submit" class="btn-primary" [disabled]="isLoading()">
+        @if (isLoading()) {
+          Loading...
+        } @else {
+          Deploy
+        }
+      </button>
+    </form>
+    
+    <div class="auth-footer">
+      <p>New recruit? <a routerLink="/register">Register here</a></p>
+    </div>
+  </div>
+</div>

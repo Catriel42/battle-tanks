@@ -1,0 +1,80 @@
+@use '../../../styles/variables' as *;
+@use '../../../styles/mixins' as *;
+
+.auth-container {
+  min-height: 100vh;
+  @include flex-center;
+  background-color: $color-bg-dark;
+  padding: $space-4;
+}
+
+.auth-panel {
+  @include panel;
+  width: 100%;
+  max-width: 400px;
+  @include flex-column;
+  gap: $space-4;
+}
+
+.auth-title {
+  @include text-xl;
+  text-align: center;
+  color: $color-primary;
+  @include section-divider;
+}
+
+.auth-subtitle {
+  @include text-sm;
+  text-align: center;
+  color: $color-black;
+  margin-top: -$space-3;
+}
+
+.auth-form {
+  @include flex-column;
+  gap: $space-4;
+}
+
+.form-group {
+  @include flex-column;
+  gap: $space-2;
+  
+  label {
+    @include text-xs;
+    color: $color-black;
+  }
+  
+  input {
+    @include input-base;
+    width: 100%;
+  }
+}
+
+.error-box {
+  @include card-highlight;
+  @include text-xs;
+  text-align: center;
+}
+
+.btn-primary {
+  @include btn-primary;
+  width: 100%;
+  margin-top: $space-2;
+}
+
+.auth-footer {
+  @include text-xs;
+  text-align: center;
+  color: $color-black;
+  padding-top: $space-4;
+  border-top: $border-width-md solid $color-black;
+  
+  a {
+    color: $color-primary;
+    
+    &:hover {
+      color: $color-black;
+      text-decoration: underline;
+    }
+  }
+}

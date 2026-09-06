@@ -1,142 +1,313 @@
-import { Component, inject, signal, DestroyRef, OnInit } from '@angular/core';
-import { FormField, form, required } from '@angular/forms/signals';
-import { RouterLink } from '@angular/router';
-import { Game } from '../../services/game';
-import { ChatMessage } from '../../models';
-import { PlayerStore } from '../../store/players.store';
-import { RoomService, Room } from '../../services/room.service';
+import { Component, inject, signal, OnInit, OnDestroy, computed, effect, ElementRef, viewChild } from '@angular/core';
+import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { GameService } from '../../services/game.service';
+import { RoomService } from '../../services/room.service';
 import { AuthService } from '../../services/auth.service';
+import { RoomResponse, MapResponse, PlayerInfoDto, CreateRoomRequest, ChatMessage } from '../../models';
 
 @Component({
   selector: 'app-waiting-room',
-  imports: [FormField, RouterLink],
+  imports: [],
   templateUrl: './waiting-room.html',
   styleUrl: './waiting-room.scss',
 })
-export class WaitingRoom implements OnInit {
-  private gameService: Game = inject(Game);
+export class WaitingRoom implements OnInit, OnDestroy {
+  private gameService = inject(GameService);
   private roomService = inject(RoomService);
   private authService = inject(AuthService);
-  private destroyRef = inject(DestroyRef);
-  playerStore = inject(PlayerStore);
+  private router = inject(Router);
+  
+  private subscriptions: Subscription[] = [];
+  
+  // Signal-based viewChild (Angular 17+)
+  private chatMessagesContainer = viewChild<ElementRef<HTMLDivElement>>('chatMessagesContainer');
 
-  joined = signal(false);
+  // UI State
   isLoading = signal(false);
   errorMsg = signal<string | null>(null);
-
-
-  chatInput = signal('');
   
-  availableRooms = signal<Room[]>([]);
-  currentUsername = signal<string>('');
+  // Room list
+  availableRooms = signal<RoomResponse[]>([]);
+  availableMaps = signal<MapResponse[]>([]);
+  
+  // Current room state
+  currentRoomId = signal<string | null>(null);
+  roomPlayers = signal<PlayerInfoDto[]>([]);
+  canStartGame = signal(false);
+  countdown = signal<number | null>(null);
+  
+  // Chat state
+  chatInput = signal('');
+  chatMessages = signal<ChatMessage[]>([]);
+  
+  // Form state
+  selectedMapId = signal<string | null>(null);
+  maxPlayers = signal(4);
+  lives = signal(3);
+  
+  // Computed
+  isInRoom = computed(() => this.currentRoomId() !== null);
+  isHost = computed(() => this.gameService.isHost());
+  isConnected = computed(() => this.gameService.isConnected());
+  currentUsername = computed(() => this.gameService.username() ?? this.authService.getUsername() ?? 'Unknown');
+  roomStatus = computed(() => this.gameService.roomStatus());
 
-  mapNameModel = signal({ mapName: '' });
-  mapNameForm = form(this.mapNameModel, (f) => {
-    required(f.mapName, { message: 'Map name is required' });
-  });
-
-
-  ngOnInit(): void {
-    const username = this.authService.getUsername();
-    if (username) {
-      this.currentUsername.set(username);
-    }
-    this.fetchRooms();
+  constructor() {
+    // Navigate to game when game starts
+    effect(() => {
+      const status = this.roomStatus();
+      if (status === 'playing') {
+        this.router.navigate(['/game']);
+      }
+    });
   }
 
-  fetchRooms(): void {
+  ngOnInit(): void {
+    this.connectAndLoad();
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+  }
+
+  private async connectAndLoad(): Promise<void> {
+    try {
+      this.isLoading.set(true);
+      
+      // Connect to SignalR
+      await this.gameService.connect();
+      
+      // Subscribe to game events
+      this.setupSubscriptions();
+      
+      // Load rooms and maps
+      await this.loadData();
+      
+    } catch (err) {
+      console.error('Failed to connect:', err);
+      this.errorMsg.set('Failed to connect to server');
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  private setupSubscriptions(): void {
+    // Room state updates
+    this.subscriptions.push(
+      this.gameService.onRoomState$.subscribe(state => {
+        this.roomPlayers.set(state.players);
+        this.canStartGame.set(state.canStart);
+      })
+    );
+
+    // Player joined
+    this.subscriptions.push(
+      this.gameService.onPlayerJoined$.subscribe(event => {
+        this.roomPlayers.update(players => [...players, {
+          playerId: event.tank.playerId,
+          username: event.tank.username,
+          isHost: false,
+          isReady: true
+        }]);
+      })
+    );
+
+    // Player left
+    this.subscriptions.push(
+      this.gameService.onPlayerLeft$.subscribe(event => {
+        this.roomPlayers.update(players => 
+          players.filter(p => p.playerId !== event.playerId)
+        );
+      })
+    );
+
+    // Countdown updates
+    this.subscriptions.push(
+      this.gameService.onCountdownUpdate$.subscribe(seconds => {
+        this.countdown.set(seconds);
+      })
+    );
+
+    // Game starting
+    this.subscriptions.push(
+      this.gameService.onGameStarting$.subscribe(() => {
+        this.countdown.set(3);
+      })
+    );
+
+    // Error handling
+    this.subscriptions.push(
+      this.gameService.onError$.subscribe(error => {
+        this.errorMsg.set(`${error.code}: ${error.message}`);
+        this.isLoading.set(false);
+      })
+    );
+
+    // Joined room
+    this.subscriptions.push(
+      this.gameService.onJoinedRoom$.subscribe(event => {
+        this.currentRoomId.set(event.roomId);
+        this.chatMessages.set([]); // Clear chat when joining a new room
+        this.isLoading.set(false);
+        // Request room state
+        this.gameService.getRoomState();
+      })
+    );
+    
+    // Chat messages
+    this.subscriptions.push(
+      this.gameService.onChatMessage$.subscribe(msg => {
+        this.chatMessages.update(messages => [...messages, {
+          username: msg.username,
+          text: msg.text,
+          timestamp: msg.timestamp
+        }]);
+        // Auto-scroll to bottom
+        setTimeout(() => this.scrollChatToBottom(), 50);
+      })
+    );
+  }
+
+  private async loadData(): Promise<void> {
     this.roomService.getRooms().subscribe({
-      next: (rooms) => this.availableRooms.set(rooms),
-      error: (err) => console.error('Error fetching rooms', err)
+      next: rooms => this.availableRooms.set(rooms),
+      error: err => console.error('Error loading rooms:', err)
+    });
+
+    this.roomService.getMaps().subscribe({
+      next: maps => {
+        this.availableMaps.set(maps);
+        if (maps.length > 0 && !this.selectedMapId()) {
+          this.selectedMapId.set(maps[0].id);
+        }
+      },
+      error: err => console.error('Error loading maps:', err)
+    });
+  }
+
+  refreshRooms(): void {
+    this.roomService.getRooms().subscribe({
+      next: rooms => this.availableRooms.set(rooms),
+      error: err => this.errorMsg.set('Failed to refresh rooms')
     });
   }
 
   createRoom(): void {
-    if (this.mapNameForm().invalid()) {
-      this.errorMsg.set('Please enter a valid map name.');
+    const mapId = this.selectedMapId();
+    if (!mapId) {
+      this.errorMsg.set('Please select a map');
       return;
     }
-    
-    this.isLoading.set(true);
-    this.errorMsg.set(null);
-    const mapName = this.mapNameModel().mapName.trim();
 
-    this.roomService.createRoom(mapName, 4).subscribe({
-      next: (room) => {
-        this.isLoading.set(false);
-        this.fetchRooms();
-      },
-      error: (err) => {
-        this.isLoading.set(false);
-        this.errorMsg.set('Failed to create room.');
-      }
-    });
-  }
-
-  joinRoom(roomId: string): void {
     this.isLoading.set(true);
     this.errorMsg.set(null);
 
-    this.roomService.joinRoom(roomId).subscribe({
-      next: () => {
-        this.isLoading.set(false);
-        const username = this.currentUsername();
-        this.playerStore.setLocalUsername(username);
-        this.gameService.sendPlayerJoin(username);
-        this.playerStore.addPlayer({ username, id: this.playerStore.localPlayerId() ?? undefined });
-        this.joined.set(true);
-      },
-      error: (err) => {
-        this.isLoading.set(false);
-        this.errorMsg.set(err.error?.message || 'Failed to join room (might be full).');
-      }
-    });
-  }
-
-  sendChat() {
-    const text = this.chatInput().trim();
-    if (!text) return;
-
-    const msg: ChatMessage = {
-      username: this.currentUsername(),
-      text: text,
-      timestamp: Date.now(),
+    const request: CreateRoomRequest = {
+      mapId,
+      maxPlayers: this.maxPlayers(),
+      lives: this.lives()
     };
 
-    this.gameService.sendChatMessage(msg);
-    this.chatInput.set('');
-  }
-
-  runBenchmark(): void {
-    if (!this.joined()) {
-      return;
-    }
-    
-    let pingsSent = 0;
-    const maxPings = 10;
-    const rtts: number[] = [];
-    
-    const sub = this.gameService.onPong((timestamp: number) => {
-      const rtt = Date.now() - timestamp;
-      rtts.push(rtt);
-      
-      if (rtts.length === maxPings) {
-        sub.unsubscribe();
-        const avg = rtts.reduce((a, b) => a + b, 0) / maxPings;
-        const min = Math.min(...rtts);
-        const max = Math.max(...rtts);
-        console.log(`[Benchmark] RTT over ${maxPings} pings: Avg=${avg}ms, Min=${min}ms, Max=${max}ms`);
-        this.errorMsg.set(`Benchmark complete. Avg RTT: ${avg.toFixed(2)}ms`);
+    this.roomService.createRoom(request).subscribe({
+      next: async (room) => {
+        // Join the room via SignalR
+        try {
+          await this.gameService.joinRoom(room.id);
+        } catch (err) {
+          this.errorMsg.set('Failed to join created room');
+          this.isLoading.set(false);
+        }
+      },
+      error: (err) => {
+        this.isLoading.set(false);
+        this.errorMsg.set(err.error?.message || 'Failed to create room');
       }
     });
+  }
 
-    const interval = setInterval(() => {
-      if (pingsSent >= maxPings) {
-        clearInterval(interval);
-        return;
+  async joinRoom(roomId: string): Promise<void> {
+    this.isLoading.set(true);
+    this.errorMsg.set(null);
+
+    // First join via REST API (adds to DB)
+    this.roomService.joinRoom(roomId).subscribe({
+      next: async () => {
+        // Then join via SignalR (adds to in-memory game)
+        try {
+          await this.gameService.joinRoom(roomId);
+        } catch (err) {
+          this.errorMsg.set('Failed to join room');
+          this.isLoading.set(false);
+        }
+      },
+      error: (err) => {
+        this.isLoading.set(false);
+        this.errorMsg.set(err.error?.message || 'Failed to join room');
       }
-      this.gameService.sendPing();
-      pingsSent++;
-    }, 200);
+    });
+  }
+
+  async leaveRoom(): Promise<void> {
+    const roomId = this.currentRoomId();
+    if (!roomId) return;
+
+    this.isLoading.set(true);
+
+    try {
+      await this.gameService.leaveRoom();
+      this.roomService.leaveRoom(roomId).subscribe();
+      this.currentRoomId.set(null);
+      this.roomPlayers.set([]);
+      this.chatMessages.set([]); // Clear chat when leaving
+      this.refreshRooms();
+    } catch (err) {
+      this.errorMsg.set('Failed to leave room');
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  async startGame(): Promise<void> {
+    if (!this.isHost() || !this.canStartGame()) return;
+
+    this.isLoading.set(true);
+    this.errorMsg.set(null);
+
+    try {
+      await this.gameService.startGame();
+      // Game will start automatically when server sends GameStarting event
+    } catch (err) {
+      this.errorMsg.set('Failed to start game');
+      this.isLoading.set(false);
+    }
+  }
+
+  selectMap(mapId: string): void {
+    this.selectedMapId.set(mapId);
+  }
+
+  setMaxPlayers(value: number): void {
+    this.maxPlayers.set(Math.max(2, Math.min(4, value)));
+  }
+
+  setLives(value: number): void {
+    this.lives.set(Math.max(1, Math.min(10, value)));
+  }
+  
+  sendChat(): void {
+    const text = this.chatInput().trim();
+    if (!text) return;
+    
+    this.gameService.sendChatMessage(text);
+    this.chatInput.set('');
+  }
+  
+  private scrollChatToBottom(): void {
+    const container = this.chatMessagesContainer();
+    if (container) {
+      const el = container.nativeElement;
+      el.scrollTop = el.scrollHeight;
+    }
   }
 }

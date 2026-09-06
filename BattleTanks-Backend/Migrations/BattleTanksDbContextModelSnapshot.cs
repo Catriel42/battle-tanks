@@ -31,24 +31,84 @@ namespace BattleTanks_Backend.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<long?>("DurationMs")
+                        .HasColumnType("bigint");
+
                     b.Property<DateTime?>("FinishedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("MapName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                    b.Property<int>("Lives")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("MapId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("MaxPlayers")
                         .HasColumnType("integer");
+
+                    b.Property<int>("MinPlayers")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("WinnerId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
+                    b.HasIndex("MapId");
+
+                    b.HasIndex("WinnerId");
+
                     b.ToTable("GameSessions");
+                });
+
+            modelBuilder.Entity("BattleTanks_Backend.Models.Entities.Map", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("TileData")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Maps");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Height = 20,
+                            Name = "Classic",
+                            TileData = "[\n  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\n  [1,0,0,0,0,0,2,2,0,0,1,1,0,0,0,0,0,0,1,1,0,0,2,2,0,0,0,0,0,1],\n  [1,0,1,1,2,0,0,0,0,0,1,1,0,2,2,2,2,0,1,1,0,0,0,0,0,2,1,1,0,1],\n  [1,0,1,1,2,0,1,1,1,0,0,0,0,2,1,1,2,0,0,0,0,1,1,1,0,2,1,1,0,1],\n  [1,0,2,2,0,0,1,1,1,0,2,2,0,2,1,1,2,0,2,2,0,1,1,1,0,0,2,2,0,1],\n  [1,0,0,0,0,0,0,2,0,0,2,2,0,0,0,0,0,0,2,2,0,0,2,0,0,0,0,0,0,1],\n  [1,1,1,0,2,2,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,2,2,0,1,1,1],\n  [1,1,1,0,1,1,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,1,1,0,1,1,1],\n  [1,0,0,0,1,1,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,0,1,1,0,0,0,1],\n  [1,0,2,2,0,0,0,0,2,2,0,0,1,1,0,0,1,1,0,0,2,2,0,0,0,0,2,2,0,1],\n  [1,0,2,2,0,0,0,0,2,2,0,0,1,1,0,0,1,1,0,0,2,2,0,0,0,0,2,2,0,1],\n  [1,0,0,0,1,1,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,0,1,1,0,0,0,1],\n  [1,1,1,0,1,1,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,1,1,0,1,1,1],\n  [1,1,1,0,2,2,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,2,2,0,1,1,1],\n  [1,0,0,0,0,0,0,2,0,0,2,2,0,0,0,0,0,0,2,2,0,0,2,0,0,0,0,0,0,1],\n  [1,0,2,2,0,0,1,1,1,0,2,2,0,2,1,1,2,0,2,2,0,1,1,1,0,0,2,2,0,1],\n  [1,0,1,1,2,0,1,1,1,0,0,0,0,2,1,1,2,0,0,0,0,1,1,1,0,2,1,1,0,1],\n  [1,0,1,1,2,0,0,0,0,0,1,1,0,2,2,2,2,0,1,1,0,0,0,0,0,2,1,1,0,1],\n  [1,0,0,0,0,0,2,2,0,0,1,1,0,0,0,0,0,0,1,1,0,0,2,2,0,0,0,0,0,1],\n  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]\n]",
+                            Width = 30
+                        });
                 });
 
             modelBuilder.Entity("BattleTanks_Backend.Models.Entities.Player", b =>
@@ -72,7 +132,10 @@ namespace BattleTanks_Backend.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("TotalScore")
+                    b.Property<int>("TotalDeaths")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalKills")
                         .HasColumnType("integer");
 
                     b.Property<string>("Username")
@@ -94,31 +157,59 @@ namespace BattleTanks_Backend.Migrations
                     b.ToTable("Players");
                 });
 
-            modelBuilder.Entity("BattleTanks_Backend.Models.Entities.Score", b =>
+            modelBuilder.Entity("BattleTanks_Backend.Models.Entities.PlayerGameStats", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<double>("Accuracy")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("BlocksDestroyed")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DamageDealt")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DamageTaken")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Deaths")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("FinalPosition")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("GameSessionId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("Kills")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("PlayerId")
                         .HasColumnType("uuid");
 
-                    b.Property<int>("Points")
+                    b.Property<int>("ShotsFired")
                         .HasColumnType("integer");
+
+                    b.Property<int>("ShotsHit")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SurvivalTimeMs")
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
                     b.HasIndex("GameSessionId");
 
-                    b.HasIndex("PlayerId");
+                    b.HasIndex("PlayerId", "GameSessionId")
+                        .IsUnique();
 
-                    b.ToTable("Scores");
+                    b.ToTable("PlayerGameStats");
                 });
 
             modelBuilder.Entity("GameSessionPlayer", b =>
@@ -136,16 +227,34 @@ namespace BattleTanks_Backend.Migrations
                     b.ToTable("GameSessionPlayer");
                 });
 
-            modelBuilder.Entity("BattleTanks_Backend.Models.Entities.Score", b =>
+            modelBuilder.Entity("BattleTanks_Backend.Models.Entities.GameSession", b =>
+                {
+                    b.HasOne("BattleTanks_Backend.Models.Entities.Map", "Map")
+                        .WithMany("GameSessions")
+                        .HasForeignKey("MapId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BattleTanks_Backend.Models.Entities.Player", "Winner")
+                        .WithMany("WonSessions")
+                        .HasForeignKey("WinnerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Map");
+
+                    b.Navigation("Winner");
+                });
+
+            modelBuilder.Entity("BattleTanks_Backend.Models.Entities.PlayerGameStats", b =>
                 {
                     b.HasOne("BattleTanks_Backend.Models.Entities.GameSession", "GameSession")
-                        .WithMany("Scores")
+                        .WithMany("PlayerStats")
                         .HasForeignKey("GameSessionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("BattleTanks_Backend.Models.Entities.Player", "Player")
-                        .WithMany("Scores")
+                        .WithMany("PlayerStats")
                         .HasForeignKey("PlayerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -172,12 +281,19 @@ namespace BattleTanks_Backend.Migrations
 
             modelBuilder.Entity("BattleTanks_Backend.Models.Entities.GameSession", b =>
                 {
-                    b.Navigation("Scores");
+                    b.Navigation("PlayerStats");
+                });
+
+            modelBuilder.Entity("BattleTanks_Backend.Models.Entities.Map", b =>
+                {
+                    b.Navigation("GameSessions");
                 });
 
             modelBuilder.Entity("BattleTanks_Backend.Models.Entities.Player", b =>
                 {
-                    b.Navigation("Scores");
+                    b.Navigation("PlayerStats");
+
+                    b.Navigation("WonSessions");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,4 +1,50 @@
 <div class="game-layout">
-  <app-game-canvas [localUsername]="localUsername()"></app-game-canvas>
-  <app-hud-panel [localUsername]="localUsername()"></app-hud-panel>
+  <app-game-canvas></app-game-canvas>
+  <app-hud-panel></app-hud-panel>
+  
+  @if (showGameOver()) {
+    <div class="game-over-overlay">
+      <div class="game-over-panel">
+        <h1 class="game-over-title">Game Over</h1>
+        
+        @if (gameOverData(); as data) {
+          @if (data.winnerUsername) {
+            <div class="winner-box">
+              <h2>Winner: {{ data.winnerUsername }}</h2>
+            </div>
+          }
+          
+          <div class="duration-row">
+            <span>Duration</span>
+            <span>{{ formatTime(data.durationMs) }}</span>
+          </div>
+          
+          <div class="stats-section">
+            <div class="stats-header">
+              <span>Rank</span>
+              <span>Player</span>
+              <span>K</span>
+              <span>D</span>
+              <span>Acc%</span>
+              <span>Dmg</span>
+            </div>
+            @for (stat of data.finalStats; track stat.playerId) {
+              <div class="stats-row" [class.local]="stat.playerId === localTank()?.playerId">
+                <span class="rank">{{ stat.position }}</span>
+                <span class="name">{{ stat.username }}</span>
+                <span>{{ stat.kills }}</span>
+                <span>{{ stat.deaths }}</span>
+                <span>{{ stat.accuracy.toFixed(0) }}</span>
+                <span>{{ stat.damageDealt }}</span>
+              </div>
+            }
+          </div>
+        }
+        
+        <button class="btn-primary" (click)="returnToLobby()">
+          Return to Lobby
+        </button>
+      </div>
+    </div>
+  }
 </div>

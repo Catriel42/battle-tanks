@@ -6,16 +6,13 @@ import {
   inject,
   DestroyRef,
   signal,
-  input,
+  effect,
+  computed,
 } from '@angular/core';
 import { fromEvent } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Game } from '../../services/game';
-import { PlayerPosition, Direction, Bullet } from '../../models';
-
-import { PlayerStore } from '../../store/players.store';
-import { MapStore } from '../../store/map.store';
-import mapData from '../../../assets/map.json';
+import { GameService } from '../../services/game.service';
+import { Direction, TankDto, BulletDto } from '../../models';
 
 @Component({
   selector: 'app-game-canvas',
@@ -26,94 +23,87 @@ import mapData from '../../../assets/map.json';
 export class GameCanvas {
   canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('canvasRef');
 
-  private gameService: Game = inject(Game);
+  private gameService = inject(GameService);
   private destroyRef = inject(DestroyRef);
-  playerStore = inject(PlayerStore);
-  mapStore = inject(MapStore);
 
   private ctx!: CanvasRenderingContext2D;
   private animationFrameId = 0;
+  
+  // Track which movement key is currently held
+  private currentMoveDirection: Direction | null = null;
   private keysPressed = new Set<string>();
 
+  // Constants
   private readonly tankSize = 40;
-  private readonly speed = 5;
   private readonly tileSize = 40;
-
+  private readonly bulletSize = 10;
+  
   readonly canvasWidth = 1200;
   readonly canvasHeight = 800;
 
-
-  private readonly worldWidth = 30 * 40;
-  private readonly worldHeight = 20 * 40;
-
+  // Camera position
   private cameraX = 0;
   private cameraY = 0;
 
-  localUsername = input<string>('');
-  position = signal<PlayerPosition>({ x: 40, y: 40, direction: 'UP' });
+  // Visual effects (client-side only for feedback)
   private explosions: { x: number; y: number; radius: number; maxRadius: number }[] = [];
-  private bullets: Bullet[] = [];
-  private readonly bulletSpeed = 10;
-  private lastShootTime = 0;
+
+  // Loaded images
   private localTankImg!: HTMLImageElement;
   private enemyTankImg!: HTMLImageElement;
   private bulletImg!: HTMLImageElement;
+  private imagesLoaded = signal(false);
 
-  private loadImage(src: string): HTMLImageElement {
-    const img = new Image();
-    img.src = src;
-    return img;
-  }
+  // Computed values from game service
+  private worldWidth = computed(() => this.gameService.mapWidth() * this.tileSize);
+  private worldHeight = computed(() => this.gameService.mapHeight() * this.tileSize);
 
   constructor() {
-    this.localTankImg = this.loadImage('/assets/tank-green.png?v=2');
-    this.enemyTankImg = this.loadImage('/assets/tank-red.png?v=2');
-    this.bulletImg = this.loadImage('/assets/bullet.png?v=2');
+    // Load images
+    this.loadImages();
 
-    this.gameService.onShoot((payload) => {
-      if (payload.id !== this.playerStore.localPlayerId()) {
-        this.bullets.push({ x: payload.x, y: payload.y, direction: payload.direction as Direction, ownerId: payload.id });
-      }
-    });
-
-    this.mapStore.loadMap(mapData as number[][]);
-
-    this.gameService.onDestroyBlock((payload) => {
-      this.mapStore.destroyBlock(payload.row, payload.col);
-      this.addExplosion(payload.col * this.tileSize + 20, payload.row * this.tileSize + 20);
-      if (payload.id && payload.id !== this.playerStore.localPlayerId()) {
-        this.playerStore.incrementScore(payload.id, 10);
-      }
-    });
-
-    this.gameService.onPlayerJoin(() => {
-      this.gameService.sendPlayerMove(this.position());
-    });
-
-    fromEvent<KeyboardEvent>(window, 'keydown')
+    // Subscribe to game events for visual effects
+    this.gameService.onBlockDestroyed$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((event) => {
-        const key = event.key.toLowerCase();
-        if (key === ' ') {
-          event.preventDefault();
-          this.shoot();
-        } else if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
-          event.preventDefault();
-          this.keysPressed.add(key);
+        this.addExplosion(
+          event.col * this.tileSize + this.tileSize / 2,
+          event.row * this.tileSize + this.tileSize / 2
+        );
+      });
+
+    this.gameService.onPlayerHit$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((event) => {
+        // Find victim position and add small explosion
+        const victim = this.gameService.tanks().find(t => t.id === event.victimId);
+        if (victim) {
+          this.addExplosion(victim.x + this.tankSize / 2, victim.y + this.tankSize / 2, 20);
         }
       });
 
-    fromEvent<KeyboardEvent>(window, 'keyup')
+    this.gameService.onPlayerKilled$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((event) => {
-        this.keysPressed.delete(event.key.toLowerCase());
+        // Find victim position and add big explosion
+        const victim = this.gameService.tanks().find(t => t.id === event.victimId);
+        if (victim) {
+          this.addExplosion(victim.x + this.tankSize / 2, victim.y + this.tankSize / 2, 50);
+        }
       });
+
+    // Keyboard input handling
+    fromEvent<KeyboardEvent>(window, 'keydown')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((event) => this.handleKeyDown(event));
+
+    fromEvent<KeyboardEvent>(window, 'keyup')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((event) => this.handleKeyUp(event));
 
     fromEvent(window, 'blur')
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
-        this.keysPressed.clear();
-      });
+      .subscribe(() => this.handleBlur());
 
     this.destroyRef.onDestroy(() => {
       cancelAnimationFrame(this.animationFrameId);
@@ -124,272 +114,438 @@ export class GameCanvas {
       const context = canvas.getContext('2d');
       if (context) {
         this.ctx = context;
-
-
-        fromEvent<MouseEvent>(canvas, 'mousedown')
-          .pipe(takeUntilDestroyed(this.destroyRef))
-          .subscribe((event) => {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = event.clientX - rect.left;
-            const mouseY = event.clientY - rect.top;
-            this.handleLocalClick(mouseX, mouseY);
-          });
-
-        this.gameLoop();
-
-        this.gameService.sendPlayerMove(this.position());
+        this.renderLoop();
       }
     });
   }
 
-  private handleLocalClick(screenX: number, screenY: number): void {
-    const worldX = screenX + this.cameraX;
-    const worldY = screenY + this.cameraY;
+  private loadImages(): void {
+    let loadedCount = 0;
+    const totalImages = 3;
 
-    const col = Math.floor(worldX / this.tileSize);
-    const row = Math.floor(worldY / this.tileSize);
+    const onLoad = () => {
+      loadedCount++;
+      if (loadedCount === totalImages) {
+        this.imagesLoaded.set(true);
+      }
+    };
 
-    const grid = this.mapStore.grid();
-    if (grid[row] && grid[row][col] === 2) {
-      this.mapStore.destroyBlock(row, col);
-      const localId = this.playerStore.localPlayerId();
-      this.gameService.sendDestroyBlock(row, col, localId ?? undefined);
-      this.addExplosion(col * this.tileSize + 20, row * this.tileSize + 20);
+    this.localTankImg = new Image();
+    this.localTankImg.onload = onLoad;
+    this.localTankImg.src = '/assets/tank-green.png';
 
-      if (localId) {
-        this.playerStore.incrementScore(localId, 10);
+    this.enemyTankImg = new Image();
+    this.enemyTankImg.onload = onLoad;
+    this.enemyTankImg.src = '/assets/tank-red.png';
+
+    this.bulletImg = new Image();
+    this.bulletImg.onload = onLoad;
+    this.bulletImg.src = '/assets/bullet.png';
+  }
+
+  private handleKeyDown(event: KeyboardEvent): void {
+    // Only handle input if game is playing
+    if (this.gameService.roomStatus() !== 'playing') return;
+    
+    const key = event.key.toLowerCase();
+    
+    // Shoot on space
+    if (key === ' ' || key === 'spacebar') {
+      event.preventDefault();
+      this.gameService.shoot();
+      return;
+    }
+    
+    // Movement keys
+    const directionMap: Record<string, Direction> = {
+      'w': 'up',
+      'arrowup': 'up',
+      's': 'down',
+      'arrowdown': 'down',
+      'a': 'left',
+      'arrowleft': 'left',
+      'd': 'right',
+      'arrowright': 'right',
+    };
+    
+    const direction = directionMap[key];
+    if (direction) {
+      event.preventDefault();
+      
+      // Only send move_start if this is a new key press or direction change
+      if (!this.keysPressed.has(key)) {
+        this.keysPressed.add(key);
+        
+        // If we're already moving in a different direction, 
+        // update to the new direction
+        if (this.currentMoveDirection !== direction) {
+          this.currentMoveDirection = direction;
+          this.gameService.moveStart(direction);
+        }
       }
     }
   }
 
-  private addExplosion(worldX: number, worldY: number): void {
-    this.explosions.push({ x: worldX, y: worldY, radius: 5, maxRadius: 30 });
+  private handleKeyUp(event: KeyboardEvent): void {
+    const key = event.key.toLowerCase();
+    this.keysPressed.delete(key);
+    
+    // Check if the released key corresponds to current movement direction
+    const directionMap: Record<string, Direction> = {
+      'w': 'up',
+      'arrowup': 'up',
+      's': 'down',
+      'arrowdown': 'down',
+      'a': 'left',
+      'arrowleft': 'left',
+      'd': 'right',
+      'arrowright': 'right',
+    };
+    
+    const releasedDirection = directionMap[key];
+    
+    if (releasedDirection === this.currentMoveDirection) {
+      // Check if another movement key is still pressed
+      const stillPressedDirection = this.getActiveDirection();
+      
+      if (stillPressedDirection) {
+        // Switch to the other pressed direction
+        this.currentMoveDirection = stillPressedDirection;
+        this.gameService.moveStart(stillPressedDirection);
+      } else {
+        // No more movement keys pressed, stop
+        this.currentMoveDirection = null;
+        this.gameService.moveStop();
+      }
+    }
   }
 
-  private shoot(): void {
-    const now = Date.now();
-    if (now - this.lastShootTime < 500) return;
-
-    const pos = this.position();
-    const localId = this.playerStore.localPlayerId();
-    if (!localId || !pos.direction) return;
-
-    this.lastShootTime = now;
-    let bx = pos.x;
-    let by = pos.y;
-    const bulletSize = 10;
-
-    if (pos.direction === 'UP') {
-      bx = pos.x + this.tankSize / 2 - bulletSize / 2;
-      by = pos.y - bulletSize;
-    } else if (pos.direction === 'DOWN') {
-      bx = pos.x + this.tankSize / 2 - bulletSize / 2;
-      by = pos.y + this.tankSize;
-    } else if (pos.direction === 'LEFT') {
-      bx = pos.x - bulletSize;
-      by = pos.y + this.tankSize / 2 - bulletSize / 2;
-    } else if (pos.direction === 'RIGHT') {
-      bx = pos.x + this.tankSize;
-      by = pos.y + this.tankSize / 2 - bulletSize / 2;
-    }
-
-    this.bullets.push({ x: bx, y: by, direction: pos.direction, ownerId: localId });
-    this.gameService.sendShoot(localId, bx, by, pos.direction);
-  }
-
-  private canMoveTo(newX: number, newY: number): boolean {
-    if (newX < 0 || newY < 0 || newX + this.tankSize > this.worldWidth || newY + this.tankSize > this.worldHeight) {
-      return false;
-    }
-
-    const grid = this.mapStore.grid();
-    const corners = [
-      { x: newX, y: newY },
-      { x: newX + this.tankSize - 1, y: newY },
-      { x: newX, y: newY + this.tankSize - 1 },
-      { x: newX + this.tankSize - 1, y: newY + this.tankSize - 1 }
+  private getActiveDirection(): Direction | null {
+    const directionKeys: [string[], Direction][] = [
+      [['w', 'arrowup'], 'up'],
+      [['s', 'arrowdown'], 'down'],
+      [['a', 'arrowleft'], 'left'],
+      [['d', 'arrowright'], 'right'],
     ];
-
-    for (const corner of corners) {
-      const col = Math.floor(corner.x / this.tileSize);
-      const row = Math.floor(corner.y / this.tileSize);
-      if (grid[row] && grid[row][col] > 0) {
-        return false;
+    
+    for (const [keys, direction] of directionKeys) {
+      if (keys.some(k => this.keysPressed.has(k))) {
+        return direction;
       }
     }
-
-    const localId = this.playerStore.localPlayerId();
-    for (const p of this.playerStore.players()) {
-      if (p.id === localId || p.health <= 0 || !p.position) continue;
-      const px = p.position.x;
-      const py = p.position.y;
-      if (newX < px + this.tankSize && newX + this.tankSize > px &&
-          newY < py + this.tankSize && newY + this.tankSize > py) {
-        return false;
-      }
-    }
-
-    return true;
+    return null;
   }
 
-  private gameLoop(): void {
+  private handleBlur(): void {
+    // Stop movement when window loses focus
+    if (this.currentMoveDirection) {
+      this.currentMoveDirection = null;
+      this.keysPressed.clear();
+      this.gameService.moveStop();
+    }
+  }
+
+  private addExplosion(worldX: number, worldY: number, maxRadius = 30): void {
+    this.explosions.push({ x: worldX, y: worldY, radius: 5, maxRadius });
+  }
+
+  private renderLoop(): void {
     this.update();
     this.draw();
-    this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
+    this.animationFrameId = requestAnimationFrame(() => this.renderLoop());
   }
 
   private update(): void {
-    const pos = this.position();
-    const x = pos.x;
-    const y = pos.y;
-    let newX = x;
-    let newY = y;
-    let moved = false;
-    let newDir = pos.direction || 'UP';
-
-    if (this.keysPressed.has('w') || this.keysPressed.has('arrowup')) {
-      newY -= this.speed; moved = true; newDir = 'UP';
-    } else if (this.keysPressed.has('s') || this.keysPressed.has('arrowdown')) {
-      newY += this.speed; moved = true; newDir = 'DOWN';
-    } else if (this.keysPressed.has('a') || this.keysPressed.has('arrowleft')) {
-      newX -= this.speed; moved = true; newDir = 'LEFT';
-    } else if (this.keysPressed.has('d') || this.keysPressed.has('arrowright')) {
-      newX += this.speed; moved = true; newDir = 'RIGHT';
+    // Update camera to follow local tank
+    const localTank = this.gameService.localTank();
+    if (localTank) {
+      const targetCameraX = localTank.x + this.tankSize / 2 - this.canvasWidth / 2;
+      const targetCameraY = localTank.y + this.tankSize / 2 - this.canvasHeight / 2;
+      
+      // Clamp camera to world bounds
+      this.cameraX = Math.max(0, Math.min(targetCameraX, this.worldWidth() - this.canvasWidth));
+      this.cameraY = Math.max(0, Math.min(targetCameraY, this.worldHeight() - this.canvasHeight));
     }
-
-    if (moved || newDir !== pos.direction) {
-       let finalX = x;
-       let finalY = y;
-
-       if (moved) {
-          if (this.canMoveTo(newX, newY)) {
-             finalX = newX; finalY = newY;
-          } else if (this.canMoveTo(newX, y)) {
-             finalX = newX;
-          } else if (this.canMoveTo(x, newY)) {
-             finalY = newY;
-          }
-       }
-
-       this.position.set({ x: finalX, y: finalY, direction: newDir });
-       this.gameService.sendPlayerMove({ x: finalX, y: finalY, direction: newDir });
-    }
-
-    for (let i = this.bullets.length - 1; i >= 0; i--) {
-      const b = this.bullets[i];
-      if (b.direction === 'UP') b.y -= this.bulletSpeed;
-      if (b.direction === 'DOWN') b.y += this.bulletSpeed;
-      if (b.direction === 'LEFT') b.x -= this.bulletSpeed;
-      if (b.direction === 'RIGHT') b.x += this.bulletSpeed;
-
-      if (b.x < 0 || b.y < 0 || b.x > this.worldWidth || b.y > this.worldHeight) {
-        this.bullets.splice(i, 1);
-        continue;
-      }
-
-      const col = Math.floor((b.x + 5) / this.tileSize);
-      const row = Math.floor((b.y + 5) / this.tileSize);
-      const grid = this.mapStore.grid();
-
-      if (grid[row] && grid[row][col] > 0) {
-        if (grid[row][col] === 2) {
-          this.mapStore.destroyBlock(row, col);
-          this.addExplosion(col * this.tileSize + 20, row * this.tileSize + 20);
-
-          if (b.ownerId === this.playerStore.localPlayerId()) {
-            this.playerStore.incrementScore(b.ownerId, 10);
-            this.gameService.sendDestroyBlock(row, col, b.ownerId);
-          }
-        } else {
-          this.addExplosion(b.x, b.y);
-        }
-        this.bullets.splice(i, 1);
-        continue;
-      }
-    }
-
-    const p = this.position();
-    this.cameraX = Math.max(0, Math.min(p.x + this.tankSize / 2 - this.canvasWidth / 2, this.worldWidth - this.canvasWidth));
-    this.cameraY = Math.max(0, Math.min(p.y + this.tankSize / 2 - this.canvasHeight / 2, this.worldHeight - this.canvasHeight));
-
+    
+    // Update explosions
     this.explosions = this.explosions.filter(exp => {
       exp.radius += 2;
       return exp.radius <= exp.maxRadius;
     });
   }
 
-  private drawTank(x: number, y: number, direction: Direction | undefined, image: HTMLImageElement): void {
+  private draw(): void {
+    if (!this.ctx) return;
+
+    const status = this.gameService.roomStatus();
+    
+    // Clear canvas
+    this.ctx.fillStyle = '#000000';
+    this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+
+    if (status === 'waiting') {
+      this.drawWaitingScreen();
+      return;
+    }
+
+    if (status === 'starting') {
+      this.drawStartingScreen();
+      return;
+    }
+
+    if (status === 'finished') {
+      this.drawFinishedScreen();
+      return;
+    }
+    // Draw map
+    this.drawMap();
+    
+    // Draw tanks
+    this.drawTanks();
+    
+    // Draw power-ups
+    this.drawPowerUps();
+    
+    // Draw bullets
+    this.drawBullets();
+    
+    // Draw explosions
+    this.drawExplosions();
+    
+    // Draw HUD
+    this.drawHUD();
+  }
+
+  private drawWaitingScreen(): void {
+    this.ctx.fillStyle = '#333';
+    this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+    
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = '32px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Waiting for players...', this.canvasWidth / 2, this.canvasHeight / 2);
+  }
+
+  private drawStartingScreen(): void {
+    // Draw the map in background
+    this.drawMap();
+    this.drawTanks();
+    
+    // Draw countdown overlay
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+    
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = 'bold 72px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('GET READY!', this.canvasWidth / 2, this.canvasHeight / 2);
+  }
+
+  private drawFinishedScreen(): void {
+    // Keep last game state visible
+    this.drawMap();
+    this.drawTanks();
+    
+    // Draw game over overlay
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+    
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = 'bold 48px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('GAME OVER', this.canvasWidth / 2, this.canvasHeight / 2);
+  }
+
+  private drawMap(): void {
+    const grid = this.gameService.mapGrid();
+    if (!grid.length) return;
+    
+    for (let row = 0; row < grid.length; row++) {
+      for (let col = 0; col < grid[row].length; col++) {
+        const screenX = col * this.tileSize - this.cameraX;
+        const screenY = row * this.tileSize - this.cameraY;
+        
+        // Skip tiles outside viewport
+        if (screenX + this.tileSize < 0 || screenX > this.canvasWidth ||
+            screenY + this.tileSize < 0 || screenY > this.canvasHeight) {
+          continue;
+        }
+        
+        // Get effective tile (considering destroyed blocks)
+        const tile = this.gameService.getTileAt(row, col);
+        
+        if (tile === 0) continue; // Empty
+        
+        if (tile === 1) {
+          // Steel wall (indestructible)
+          this.ctx.fillStyle = '#b0b0b0';
+        } else if (tile === 2) {
+          // Brick wall (destructible)
+          this.ctx.fillStyle = '#cc5500';
+        }
+        
+        this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
+        
+        // Add border for visual clarity
+        this.ctx.strokeStyle = '#000';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(screenX, screenY, this.tileSize, this.tileSize);
+      }
+    }
+  }
+
+  private drawTanks(): void {
+    if (!this.imagesLoaded()) return;
+    
+    const localId = this.gameService.connectionId();
+    const tanks = this.gameService.tanks();
+    
+    for (const tank of tanks) {
+      if (!tank.isAlive) continue;
+      
+      const isLocal = tank.id === localId;
+      const image = isLocal ? this.localTankImg : this.enemyTankImg;
+      
+      this.drawTank(tank, image);
+      
+      // Draw health bar
+      this.drawHealthBar(tank);
+      
+      // Draw username
+      this.drawUsername(tank);
+    }
+  }
+
+  private drawTank(tank: TankDto, image: HTMLImageElement): void {
+    const screenX = tank.x - this.cameraX;
+    const screenY = tank.y - this.cameraY;
+    
     this.ctx.save();
-    this.ctx.translate(x - this.cameraX + this.tankSize / 2, y - this.cameraY + this.tankSize / 2);
-
+    this.ctx.translate(screenX + this.tankSize / 2, screenY + this.tankSize / 2);
+    
+    // Rotate based on direction
     let angle = 0;
-    if (direction === 'DOWN') angle = Math.PI;
-    else if (direction === 'LEFT') angle = -Math.PI / 2;
-    else if (direction === 'RIGHT') angle = Math.PI / 2;
-
+    switch (tank.direction) {
+      case 'down': angle = Math.PI; break;
+      case 'left': angle = -Math.PI / 2; break;
+      case 'right': angle = Math.PI / 2; break;
+    }
+    
     this.ctx.rotate(angle);
     this.ctx.drawImage(image, -this.tankSize / 2, -this.tankSize / 2, this.tankSize, this.tankSize);
     this.ctx.restore();
   }
 
-  private draw(): void {
-    if (!this.ctx) return;
+  private drawHealthBar(tank: TankDto): void {
+    const screenX = tank.x - this.cameraX;
+    const screenY = tank.y - this.cameraY - 10;
+    const width = this.tankSize;
+    const height = 5;
+    
+    // Background
+    this.ctx.fillStyle = '#333';
+    this.ctx.fillRect(screenX, screenY, width, height);
+    
+    // Health
+    const healthPercent = tank.health / 3; // Assuming max health is 3
+    this.ctx.fillStyle = healthPercent > 0.5 ? '#0f0' : healthPercent > 0.25 ? '#ff0' : '#f00';
+    this.ctx.fillRect(screenX, screenY, width * healthPercent, height);
+  }
 
-    this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-    this.ctx.fillStyle = '#000000';
-    this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+  private drawUsername(tank: TankDto): void {
+    const screenX = tank.x - this.cameraX + this.tankSize / 2;
+    const screenY = tank.y - this.cameraY - 18;
+    
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = '12px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText(tank.username, screenX, screenY);
+  }
 
-    const grid = this.mapStore.grid();
-    for (let row = 0; row < grid.length; row++) {
-      for (let col = 0; col < grid[row].length; col++) {
-        const cell = grid[row][col];
-        if (cell === 0) continue;
-
-        const screenX = col * this.tileSize - this.cameraX;
-        const screenY = row * this.tileSize - this.cameraY;
-
-        if (screenX + this.tileSize < 0 || screenX > this.canvasWidth || screenY + this.tileSize < 0 || screenY > this.canvasHeight) {
-          continue;
-        }
-
-        if (cell === 1) {
-          this.ctx.fillStyle = '#b0b0b0';
-        } else if (cell === 2) {
-          this.ctx.fillStyle = '#cc5500';
-        }
-        this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
+  private drawBullets(): void {
+    const bullets = this.gameService.bullets();
+    
+    for (const bullet of bullets) {
+      const screenX = bullet.x - this.cameraX;
+      const screenY = bullet.y - this.cameraY;
+      
+      if (this.bulletImg.complete) {
+        this.ctx.drawImage(this.bulletImg, screenX, screenY, this.bulletSize, this.bulletSize);
+      } else {
+        this.ctx.fillStyle = '#ff0';
+        this.ctx.beginPath();
+        this.ctx.arc(screenX + this.bulletSize / 2, screenY + this.bulletSize / 2, this.bulletSize / 2, 0, Math.PI * 2);
+        this.ctx.fill();
       }
     }
+  }
 
-    const { x, y, direction } = this.position();
-    const localPlayer = this.playerStore.players().find(p => p.id === this.playerStore.localPlayerId());
-    if (localPlayer && localPlayer.health > 0) {
-      this.drawTank(x, y, direction, this.localTankImg);
-    }
-
-    this.playerStore.players().forEach((player) => {
-      if (player.position && player.health > 0 && player.id !== this.playerStore.localPlayerId()) {
-        this.drawTank(player.position.x, player.position.y, player.position.direction, this.enemyTankImg);
-      }
+  private drawPowerUps(): void {
+    const powerUps = this.gameService.powerUps();
+    const powerUpSize = 30;
+    
+    powerUps.forEach((powerUp) => {
+      if (powerUp.isCollected) return;
+      
+      const screenX = powerUp.x - this.cameraX;
+      const screenY = powerUp.y - this.cameraY;
+      
+      this.ctx.fillStyle = '#b00000';
+      this.ctx.fillRect(screenX, screenY, powerUpSize, powerUpSize);
+      
+      this.ctx.strokeStyle = '#ffffff';
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeRect(screenX, screenY, powerUpSize, powerUpSize);
+      
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.font = 'bold 16px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText('♥', screenX + powerUpSize / 2, screenY + powerUpSize / 2);
     });
+  }
 
-    this.bullets.forEach(b => {
-      this.ctx.drawImage(this.bulletImg, b.x - this.cameraX, b.y - this.cameraY, 10, 10);
-    });
-
-    this.explosions.forEach(exp => {
+  private drawExplosions(): void {
+    for (const exp of this.explosions) {
       const screenX = exp.x - this.cameraX;
       const screenY = exp.y - this.cameraY;
-
+      
+      // Outer explosion
       this.ctx.beginPath();
       this.ctx.arc(screenX, screenY, exp.radius, 0, Math.PI * 2);
       this.ctx.fillStyle = `rgba(255, 165, 0, ${1 - exp.radius / exp.maxRadius})`;
       this.ctx.fill();
-
+      
+      // Inner explosion
       this.ctx.beginPath();
       this.ctx.arc(screenX, screenY, exp.radius * 0.6, 0, Math.PI * 2);
       this.ctx.fillStyle = `rgba(255, 255, 0, ${1 - exp.radius / exp.maxRadius})`;
       this.ctx.fill();
-    });
+    }
+  }
+
+  private drawHUD(): void {
+    const localTank = this.gameService.localTank();
+    if (!localTank) return;
+    
+    const padding = 10;
+    const boxWidth = 150;
+    const boxHeight = 60;
+    
+    // HUD background
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    this.ctx.fillRect(padding, padding, boxWidth, boxHeight);
+    
+    // Lives
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = '14px Arial';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText(`Lives: ${localTank.lives}`, padding + 10, padding + 20);
+    this.ctx.fillText(`Health: ${localTank.health}/3`, padding + 10, padding + 40);
+    
+    // Tick counter (for debugging)
+    this.ctx.fillStyle = '#888';
+    this.ctx.font = '10px Arial';
+    this.ctx.fillText(`Tick: ${this.gameService.currentTick()}`, padding + 10, padding + 55);
   }
 }
