@@ -1,4 +1,4 @@
-import { Component, inject, computed } from '@angular/core';
+import { Component, inject, computed, signal, effect } from '@angular/core';
 import { GameService } from '../../services/game.service';
 
 @Component({
@@ -11,21 +11,41 @@ import { GameService } from '../../services/game.service';
 export class HudPanelComponent {
   private gameService = inject(GameService);
   
-  // Computed values from game service
   localTank = computed(() => this.gameService.localTank());
   tanks = computed(() => this.gameService.tanks());
-  currentTick = computed(() => this.gameService.currentTick());
   
-  // Sorted players by kills (for leaderboard)
+  fps = signal(0);
+  private frameCount = 0;
+  private lastTime = performance.now();
+  
   sortedPlayers = computed(() => {
     return [...this.tanks()]
       .filter(t => !t.isEliminated)
       .sort((a, b) => {
-        // Sort by alive status first, then by lives
         if (a.isAlive !== b.isAlive) return a.isAlive ? -1 : 1;
         return b.lives - a.lives;
       });
   });
+
+  constructor() {
+    let animationId: number;
+    
+    const countFrames = () => {
+      this.frameCount++;
+      const now = performance.now();
+      const elapsed = now - this.lastTime;
+      
+      if (elapsed >= 1000) {
+        this.fps.set(Math.round(this.frameCount));
+        this.frameCount = 0;
+        this.lastTime = now;
+      }
+      
+      animationId = requestAnimationFrame(countFrames);
+    };
+    
+    animationId = requestAnimationFrame(countFrames);
+  }
 
   getHearts(health: number, maxHealth = 3): string[] {
     const hearts: string[] = [];
