@@ -21,6 +21,9 @@ var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "loc
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp => 
     ConnectionMultiplexer.Connect(redisConnection));
 builder.Services.AddSingleton<EventHistoryService>();
+builder.Services.AddSingleton<RedisCacheService>();
+builder.Services.AddSingleton<JwtSessionService>();
+builder.Services.AddScoped<LeaderboardService>();
 
 // Game Services
 builder.Services.AddSingleton<GameRoomManager>();
