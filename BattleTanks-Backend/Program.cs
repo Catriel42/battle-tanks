@@ -25,6 +25,8 @@ builder.Services.AddSingleton<EventHistoryService>();
 // Game Services
 builder.Services.AddSingleton<GameRoomManager>();
 builder.Services.AddHostedService<GameLoopService>();
+builder.Services.AddScoped<BulkOperationsService>();
+builder.Services.AddScoped<QueryBenchmarkService>();
 
 // MQTT Publisher
 builder.Services.AddSingleton<MqttPublisherService>();
