@@ -1,5 +1,6 @@
 import { Component, inject, signal, OnInit, OnDestroy, computed, effect, ElementRef, viewChild } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { GameService } from '../../services/game.service';
 import { RoomService } from '../../services/room.service';
@@ -8,7 +9,7 @@ import { RoomResponse, MapResponse, PlayerInfoDto, CreateRoomRequest, ChatMessag
 
 @Component({
   selector: 'app-waiting-room',
-  imports: [],
+  imports: [CommonModule, RouterLink],
   templateUrl: './waiting-room.html',
   styleUrl: './waiting-room.scss',
 })
