@@ -59,9 +59,9 @@ export class GameComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(sub => sub.unsubscribe());
   }
 
-  returnToLobby(): void {
+  returnHome(): void {
     this.gameService.leaveRoom();
-    this.router.navigate(['/lobby']);
+    this.router.navigate(['/room']);
   }
 
   // Helper for template
