@@ -1,8 +1,10 @@
 using BattleTanks_Backend.Data;
+using BattleTanks_Backend.Hubs;
 using BattleTanks_Backend.Models.DTOs;
 using BattleTanks_Backend.Models.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -15,9 +17,14 @@ public class RoomController : ControllerBase
 {
     private readonly BattleTanksDbContext _context;
 
-    public RoomController(BattleTanksDbContext context)
+    private readonly IHubContext<GameHub> _hubContext;
+
+    public RoomController(
+        BattleTanksDbContext context,
+        IHubContext<GameHub> hubContext)
     {
         _context = context;
+        _hubContext = hubContext;
     }
 
     [HttpGet]
@@ -100,6 +107,8 @@ public class RoomController : ControllerBase
         _context.GameSessions.Add(newRoom);
         await _context.SaveChangesAsync();
 
+        GameHub.NotifyRoomsChanged(_hubContext);
+
         return CreatedAtAction(nameof(GetRoom), new { id = newRoom.Id }, new RoomResponse(
             newRoom.Id, 
             newRoom.Status, 
@@ -109,7 +118,7 @@ public class RoomController : ControllerBase
             newRoom.MinPlayers,
             newRoom.Lives,
             1,
-            false // Can't start with 1 player
+            false
         ));
     }
 
