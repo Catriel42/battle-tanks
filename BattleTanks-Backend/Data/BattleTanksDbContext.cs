@@ -44,6 +44,9 @@ public class BattleTanksDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Status).HasConversion<string>();
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasIndex(e => new { e.Status, e.CreatedAt });
 
             entity.HasOne(e => e.Map)
                 .WithMany(m => m.GameSessions)
@@ -75,8 +78,11 @@ public class BattleTanksDbContext : DbContext
                 .HasForeignKey(e => e.GameSessionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Ensure one stats record per player per game
-            entity.HasIndex(e => new { e.PlayerId, e.GameSessionId }).IsUnique();
+            entity.HasIndex(e => new { e.PlayerId, e.GameSessionId }).IsUnique();            
+            entity.HasIndex(e => e.PlayerId);
+            entity.HasIndex(e => e.GameSessionId);
+            entity.HasIndex(e => e.Kills);
+            entity.HasIndex(e => e.CreatedAt);
         });
 
         // Seed default map
