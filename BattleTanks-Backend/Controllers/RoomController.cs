@@ -2,6 +2,7 @@ using BattleTanks_Backend.Data;
 using BattleTanks_Backend.Hubs;
 using BattleTanks_Backend.Models.DTOs;
 using BattleTanks_Backend.Models.Entities;
+using BattleTanks_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -16,21 +17,25 @@ namespace BattleTanks_Backend.Controllers;
 public class RoomController : ControllerBase
 {
     private readonly BattleTanksDbContext _context;
-
+    private readonly IDbContextFactory _dbFactory;
     private readonly IHubContext<GameHub> _hubContext;
 
     public RoomController(
         BattleTanksDbContext context,
+        IDbContextFactory dbFactory,
         IHubContext<GameHub> hubContext)
     {
         _context = context;
+        _dbFactory = dbFactory;
         _hubContext = hubContext;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetRooms()
     {
-        var rooms = await _context.GameSessions
+        await using var replicaContext = _dbFactory.CreateReplicaContext();
+        
+        var rooms = await replicaContext.GameSessions
             .AsNoTracking()
             .Include(r => r.Players)
             .Include(r => r.Map)
@@ -54,7 +59,9 @@ public class RoomController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetRoom(Guid id)
     {
-        var room = await _context.GameSessions
+        await using var replicaContext = _dbFactory.CreateReplicaContext();
+        
+        var room = await replicaContext.GameSessions
             .AsNoTracking()
             .Include(r => r.Players)
             .Include(r => r.Map)
