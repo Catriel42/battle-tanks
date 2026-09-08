@@ -309,11 +309,7 @@ export class GameCanvas {
     // Draw bullets
     this.drawBullets();
     
-    // Draw explosions
     this.drawExplosions();
-    
-    // Draw HUD
-    this.drawHUD();
   }
 
   private drawWaitingScreen(): void {
@@ -522,30 +518,5 @@ export class GameCanvas {
       this.ctx.fillStyle = `rgba(255, 255, 0, ${1 - exp.radius / exp.maxRadius})`;
       this.ctx.fill();
     }
-  }
-
-  private drawHUD(): void {
-    const localTank = this.gameService.localTank();
-    if (!localTank) return;
-    
-    const padding = 10;
-    const boxWidth = 150;
-    const boxHeight = 60;
-    
-    // HUD background
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    this.ctx.fillRect(padding, padding, boxWidth, boxHeight);
-    
-    // Lives
-    this.ctx.fillStyle = '#fff';
-    this.ctx.font = '14px Arial';
-    this.ctx.textAlign = 'left';
-    this.ctx.fillText(`Lives: ${localTank.lives}`, padding + 10, padding + 20);
-    this.ctx.fillText(`Health: ${localTank.health}/3`, padding + 10, padding + 40);
-    
-    // Tick counter (for debugging)
-    this.ctx.fillStyle = '#888';
-    this.ctx.font = '10px Arial';
-    this.ctx.fillText(`Tick: ${this.gameService.currentTick()}`, padding + 10, padding + 55);
   }
 }

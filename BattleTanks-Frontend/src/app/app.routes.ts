@@ -21,4 +21,9 @@ export const routes: Routes = [
     loadComponent: () => import('./components/game/game.component').then(m => m.GameComponent),
     canActivate: [authGuard]
   },
+  { 
+    path: 'leaderboard', 
+    loadComponent: () => import('./components/leaderboard/leaderboard.component').then(m => m.LeaderboardComponent),
+    canActivate: [authGuard]
+  },
 ];

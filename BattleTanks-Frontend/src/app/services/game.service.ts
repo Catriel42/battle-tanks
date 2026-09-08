@@ -522,5 +522,38 @@ export class GameService {
       console.log('[GameService] Power-up collected by', event.username, '- New lives:', event.new_lives);
     });
   }
+
+  async subscribeToRooms(): Promise<void> {
+    if (!this.hubConnection) return;
+    
+    this.hubConnection.off('RoomsChanged');
+    this.hubConnection.on('RoomsChanged', () => {
+      console.log('[GameService] Rooms changed notification received');
+      this.availableRooms.next(null);
+    });
+
+    try {
+      await this.hubConnection.invoke('SubscribeToRooms');
+      console.log('[GameService] Subscribed to rooms');
+    } catch (err) {
+      console.error('[GameService] Failed to subscribe to rooms:', err);
+    }
+  }
+
+  async unsubscribeFromRooms(): Promise<void> {
+    if (!this.hubConnection) return;
+    try {
+      await this.hubConnection.invoke('UnsubscribeFromRooms');
+      this.hubConnection.off('RoomsChanged');
+    } catch (err) {
+      console.error('[GameService] Failed to unsubscribe from rooms:', err);
+    }
+  }
+
+  get availableRooms$() {
+    return this.availableRooms.asObservable();
+  }
+
+  private availableRooms = new Subject<any>();
 }
 

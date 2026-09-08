@@ -1,8 +1,11 @@
 using BattleTanks_Backend.Data;
+using BattleTanks_Backend.Hubs;
 using BattleTanks_Backend.Models.DTOs;
 using BattleTanks_Backend.Models.Entities;
+using BattleTanks_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -14,16 +17,26 @@ namespace BattleTanks_Backend.Controllers;
 public class RoomController : ControllerBase
 {
     private readonly BattleTanksDbContext _context;
+    private readonly IDbContextFactory _dbFactory;
+    private readonly IHubContext<GameHub> _hubContext;
 
-    public RoomController(BattleTanksDbContext context)
+    public RoomController(
+        BattleTanksDbContext context,
+        IDbContextFactory dbFactory,
+        IHubContext<GameHub> hubContext)
     {
         _context = context;
+        _dbFactory = dbFactory;
+        _hubContext = hubContext;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetRooms()
     {
-        var rooms = await _context.GameSessions
+        await using var replicaContext = _dbFactory.CreateReplicaContext();
+        
+        var rooms = await replicaContext.GameSessions
+            .AsNoTracking()
             .Include(r => r.Players)
             .Include(r => r.Map)
             .Where(r => r.Status == GameSessionStatus.Waiting)
@@ -46,7 +59,10 @@ public class RoomController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetRoom(Guid id)
     {
-        var room = await _context.GameSessions
+        await using var replicaContext = _dbFactory.CreateReplicaContext();
+        
+        var room = await replicaContext.GameSessions
+            .AsNoTracking()
             .Include(r => r.Players)
             .Include(r => r.Map)
             .FirstOrDefaultAsync(r => r.Id == id);
@@ -98,6 +114,8 @@ public class RoomController : ControllerBase
         _context.GameSessions.Add(newRoom);
         await _context.SaveChangesAsync();
 
+        GameHub.NotifyRoomsChanged(_hubContext);
+
         return CreatedAtAction(nameof(GetRoom), new { id = newRoom.Id }, new RoomResponse(
             newRoom.Id, 
             newRoom.Status, 
@@ -107,7 +125,7 @@ public class RoomController : ControllerBase
             newRoom.MinPlayers,
             newRoom.Lives,
             1,
-            false // Can't start with 1 player
+            false
         ));
     }
 

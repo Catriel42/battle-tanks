@@ -1,4 +1,5 @@
 using BattleTanks_Backend.Data;
+using BattleTanks_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,11 +11,11 @@ namespace BattleTanks_Backend.Controllers;
 [Authorize]
 public class MapController : ControllerBase
 {
-    private readonly BattleTanksDbContext _context;
+    private readonly IDbContextFactory _dbFactory;
 
-    public MapController(BattleTanksDbContext context)
+    public MapController(IDbContextFactory dbFactory)
     {
-        _context = context;
+        _dbFactory = dbFactory;
     }
 
     public record MapResponse(Guid Id, string Name, int Width, int Height);
@@ -23,7 +24,10 @@ public class MapController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetMaps()
     {
-        var maps = await _context.Maps
+        await using var replicaContext = _dbFactory.CreateReplicaContext();
+        
+        var maps = await replicaContext.Maps
+            .AsNoTracking()
             .Select(m => new MapResponse(m.Id, m.Name, m.Width, m.Height))
             .ToListAsync();
 
@@ -33,7 +37,12 @@ public class MapController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetMap(Guid id)
     {
-        var map = await _context.Maps.FindAsync(id);
+        await using var replicaContext = _dbFactory.CreateReplicaContext();
+        
+        var map = await replicaContext.Maps
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.Id == id);
+            
         if (map == null) return NotFound("Map not found.");
 
         return Ok(new MapDetailResponse(map.Id, map.Name, map.Width, map.Height, map.TileData));

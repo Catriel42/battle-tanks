@@ -1,0 +1,33 @@
+<div class="leaderboard-container">
+  <div class="header">
+    <h1>🏆 Top Kills Leaderboard</h1>
+  </div>
+
+  <div *ngIf="loading()" class="loading">Loading...</div>
+  <div *ngIf="error()" class="error">Error: {{ error() }}</div>
+
+  <div *ngIf="!loading() && topKills().length > 0" class="leaderboard-table">
+    <div class="table-header">
+      <div class="col-rank">#</div>
+      <div class="col-player">Player</div>
+      <div class="col-score">Kills</div>
+    </div>
+    <div class="table-body">
+      <div
+        *ngFor="let entry of topKills(); let i = index"
+        [class.top3]="i < 3"
+        class="table-row"
+      >
+        <div class="col-rank">
+          <span class="rank-badge" [class]="'rank-' + (i + 1)">{{ i + 1 }}</span>
+        </div>
+        <div class="col-player">{{ entry.username }}</div>
+        <div class="col-score">{{ entry.score }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="!loading() && topKills().length === 0" class="empty">
+    No players yet. Start playing to appear on the leaderboard!
+  </div>
+</div>

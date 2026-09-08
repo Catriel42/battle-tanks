@@ -16,17 +16,20 @@ public class GameHub : Hub
     private readonly GameRoomManager _roomManager;
     private readonly BattleTanksDbContext _dbContext;
     private readonly EventHistoryService _historyService;
+    private readonly RedisCacheService _cacheService;
     private readonly ILogger<GameHub> _logger;
     
     public GameHub(
         GameRoomManager roomManager, 
         BattleTanksDbContext dbContext,
         EventHistoryService historyService,
+        RedisCacheService cacheService,
         ILogger<GameHub> logger)
     {
         _roomManager = roomManager;
         _dbContext = dbContext;
         _historyService = historyService;
+        _cacheService = cacheService;
         _logger = logger;
     }
     
@@ -45,6 +48,8 @@ public class GameHub : Hub
     {
         var playerId = GetPlayerId();
         var username = GetUsername();
+        
+        await _cacheService.AddConnectedPlayerAsync(playerId, Context.ConnectionId, username);
         
         _logger.LogInformation("Player {Username} ({PlayerId}) connected with ConnectionId {ConnectionId}", 
             username, playerId, Context.ConnectionId);
@@ -115,6 +120,10 @@ public class GameHub : Hub
             }
         }
         
+        var playerId = GetPlayerId();
+        var username2 = GetUsername();
+        await _cacheService.RemoveConnectedPlayerAsync(playerId, Context.ConnectionId, username2);
+        
         await base.OnDisconnectedAsync(exception);
     }
     
@@ -153,6 +162,7 @@ public class GameHub : Hub
             }
             
             var session = await _dbContext.GameSessions
+                .AsNoTracking()
                 .Include(s => s.Map)
                 .FirstOrDefaultAsync(s => s.Id == sessionId);
             
@@ -538,5 +548,20 @@ public class GameHub : Hub
         });
         
         _logger.LogDebug("Retrieved event history for room {RoomId} ({EventCount} events)", roomId, history.Count);
+    }
+
+    public async Task SubscribeToRooms()
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, "room-browser");
+    }
+
+    public async Task UnsubscribeFromRooms()
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, "room-browser");
+    }
+
+    public static void NotifyRoomsChanged(IHubContext<GameHub> hubContext)
+    {
+        _ = hubContext.Clients.Group("room-browser").SendAsync("RoomsChanged");
     }
 }

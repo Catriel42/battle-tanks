@@ -12,19 +12,24 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.UseUrls("http://localhost:5000");
 
-// Database
 builder.Services.AddDbContext<BattleTanksDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("PrimaryConnection")));
 
-// Redis
+builder.Services.AddSingleton<IDbContextFactory, DbContextFactory>();
+
 var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp => 
     ConnectionMultiplexer.Connect(redisConnection));
 builder.Services.AddSingleton<EventHistoryService>();
+builder.Services.AddSingleton<RedisCacheService>();
+builder.Services.AddSingleton<JwtSessionService>();
+builder.Services.AddScoped<LeaderboardService>();
 
 // Game Services
 builder.Services.AddSingleton<GameRoomManager>();
 builder.Services.AddHostedService<GameLoopService>();
+builder.Services.AddScoped<BulkOperationsService>();
+builder.Services.AddScoped<QueryBenchmarkService>();
 
 // MQTT Publisher
 builder.Services.AddSingleton<MqttPublisherService>();

@@ -1,5 +1,6 @@
 import { Component, inject, signal, OnInit, OnDestroy, computed, effect, ElementRef, viewChild } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { GameService } from '../../services/game.service';
 import { RoomService } from '../../services/room.service';
@@ -8,7 +9,7 @@ import { RoomResponse, MapResponse, PlayerInfoDto, CreateRoomRequest, ChatMessag
 
 @Component({
   selector: 'app-waiting-room',
-  imports: [],
+  imports: [CommonModule, RouterLink],
   templateUrl: './waiting-room.html',
   styleUrl: './waiting-room.scss',
 })
@@ -75,14 +76,13 @@ export class WaitingRoom implements OnInit, OnDestroy {
     try {
       this.isLoading.set(true);
       
-      // Connect to SignalR
       await this.gameService.connect();
       
-      // Subscribe to game events
       this.setupSubscriptions();
       
-      // Load rooms and maps
       await this.loadData();
+      
+      await this.gameService.subscribeToRooms();
       
     } catch (err) {
       console.error('Failed to connect:', err);
@@ -93,7 +93,38 @@ export class WaitingRoom implements OnInit, OnDestroy {
   }
 
   private setupSubscriptions(): void {
-    // Room state updates
+    this.subscriptions.push(
+      this.gameService.availableRooms$.subscribe(() => {
+        this.loadRoomsFromHttp();
+      })
+    );
+
+    this.subscriptions.push(
+      this.gameService.onJoinedRoom$.subscribe(event => {
+        this.currentRoomId.set(event.roomId);
+        this.chatMessages.set([]);
+        this.isLoading.set(false);
+        this.gameService.getRoomState();
+        this.setupInRoomSubscriptions();
+      })
+    );
+
+    this.subscriptions.push(
+      this.gameService.onError$.subscribe(error => {
+        this.errorMsg.set(`${error.code}: ${error.message}`);
+        this.isLoading.set(false);
+      })
+    );
+  }
+
+  private loadRoomsFromHttp(): void {
+    this.roomService.getRooms().subscribe({
+      next: rooms => this.availableRooms.set(rooms),
+      error: err => console.error('Error loading rooms:', err)
+    });
+  }
+
+  private setupInRoomSubscriptions(): void {
     this.subscriptions.push(
       this.gameService.onRoomState$.subscribe(state => {
         this.roomPlayers.set(state.players);
@@ -101,7 +132,6 @@ export class WaitingRoom implements OnInit, OnDestroy {
       })
     );
 
-    // Player joined
     this.subscriptions.push(
       this.gameService.onPlayerJoined$.subscribe(event => {
         this.roomPlayers.update(players => [...players, {
@@ -113,7 +143,6 @@ export class WaitingRoom implements OnInit, OnDestroy {
       })
     );
 
-    // Player left
     this.subscriptions.push(
       this.gameService.onPlayerLeft$.subscribe(event => {
         this.roomPlayers.update(players => 
@@ -122,40 +151,18 @@ export class WaitingRoom implements OnInit, OnDestroy {
       })
     );
 
-    // Countdown updates
     this.subscriptions.push(
       this.gameService.onCountdownUpdate$.subscribe(seconds => {
         this.countdown.set(seconds);
       })
     );
 
-    // Game starting
     this.subscriptions.push(
       this.gameService.onGameStarting$.subscribe(() => {
         this.countdown.set(3);
       })
     );
 
-    // Error handling
-    this.subscriptions.push(
-      this.gameService.onError$.subscribe(error => {
-        this.errorMsg.set(`${error.code}: ${error.message}`);
-        this.isLoading.set(false);
-      })
-    );
-
-    // Joined room
-    this.subscriptions.push(
-      this.gameService.onJoinedRoom$.subscribe(event => {
-        this.currentRoomId.set(event.roomId);
-        this.chatMessages.set([]); // Clear chat when joining a new room
-        this.isLoading.set(false);
-        // Request room state
-        this.gameService.getRoomState();
-      })
-    );
-    
-    // Chat messages
     this.subscriptions.push(
       this.gameService.onChatMessage$.subscribe(msg => {
         this.chatMessages.update(messages => [...messages, {
@@ -163,18 +170,12 @@ export class WaitingRoom implements OnInit, OnDestroy {
           text: msg.text,
           timestamp: msg.timestamp
         }]);
-        // Auto-scroll to bottom
         setTimeout(() => this.scrollChatToBottom(), 50);
       })
     );
   }
 
   private async loadData(): Promise<void> {
-    this.roomService.getRooms().subscribe({
-      next: rooms => this.availableRooms.set(rooms),
-      error: err => console.error('Error loading rooms:', err)
-    });
-
     this.roomService.getMaps().subscribe({
       next: maps => {
         this.availableMaps.set(maps);
@@ -187,10 +188,8 @@ export class WaitingRoom implements OnInit, OnDestroy {
   }
 
   refreshRooms(): void {
-    this.roomService.getRooms().subscribe({
-      next: rooms => this.availableRooms.set(rooms),
-      error: err => this.errorMsg.set('Failed to refresh rooms')
-    });
+    this.gameService.subscribeToRooms()
+      .catch(err => this.errorMsg.set('Failed to refresh rooms'));
   }
 
   createRoom(): void {

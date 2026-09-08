@@ -1,16 +1,56 @@
 services:
-  postgres:
+  postgres-primary:
     image: postgres:18
-    container_name: battletanks-postgres
+    container_name: battletanks-postgres-primary
     restart: unless-stopped
     environment:
       POSTGRES_USER: battletanks
       POSTGRES_PASSWORD: battletanks
       POSTGRES_DB: battletanks
+      POSTGRES_HOST_AUTH_METHOD: md5
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql
+      - postgres_primary_data:/var/lib/postgresql
+      - ./docker/postgres/primary-init.sh:/docker-entrypoint-initdb.d/init-replication.sh
+    command: >
+      postgres
+      -c wal_level=replica
+      -c max_wal_senders=3
+      -c max_replication_slots=3
+      -c hot_standby=on
+      -c listen_addresses='*'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U battletanks -d battletanks"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-replica:
+    image: postgres:18
+    container_name: battletanks-postgres-replica
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: battletanks
+      POSTGRES_PASSWORD: battletanks
+      POSTGRES_DB: battletanks
+      PGUSER: battletanks
+      PGPASSWORD: battletanks
+      PGDATA: /var/lib/postgresql/18/main
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql
+      - ./docker/postgres/replica-entrypoint.sh:/replica-entrypoint.sh
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "/replica-entrypoint.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U battletanks -d battletanks"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   pgadmin:
     image: dpage/pgadmin4:9
@@ -22,7 +62,7 @@ services:
     ports:
       - "8081:80"
     depends_on:
-      - postgres
+      - postgres-primary
     volumes:
       - pgadmin_data:/var/lib/pgadmin
 
@@ -46,15 +86,16 @@ services:
       EMQX_DASHBOARD__DEFAULT_USERNAME: admin
       EMQX_DASHBOARD__DEFAULT_PASSWORD: public
     ports:
-      - "1883:1883"      # MQTT TCP
-      - "8083:8083"      # MQTT WebSocket
-      - "18083:18083"    # Dashboard HTTP
+      - "1883:1883"
+      - "8083:8083"
+      - "18083:18083"
     volumes:
       - emqx_data:/opt/emqx/data
       - emqx_log:/opt/emqx/log
 
 volumes:
-  postgres_data:
+  postgres_primary_data:
+  postgres_replica_data:
   pgadmin_data:
   redis_data:
   emqx_data:
