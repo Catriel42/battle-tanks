@@ -549,4 +549,19 @@ public class GameHub : Hub
         
         _logger.LogDebug("Retrieved event history for room {RoomId} ({EventCount} events)", roomId, history.Count);
     }
+
+    public async Task SubscribeToRooms()
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, "room-browser");
+    }
+
+    public async Task UnsubscribeFromRooms()
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, "room-browser");
+    }
+
+    public static void NotifyRoomsChanged(IHubContext<GameHub> hubContext)
+    {
+        _ = hubContext.Clients.Group("room-browser").SendAsync("RoomsChanged");
+    }
 }
