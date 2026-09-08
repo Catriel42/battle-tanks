@@ -153,6 +153,7 @@ public class GameHub : Hub
             }
             
             var session = await _dbContext.GameSessions
+                .AsNoTracking()
                 .Include(s => s.Map)
                 .FirstOrDefaultAsync(s => s.Id == sessionId);
             

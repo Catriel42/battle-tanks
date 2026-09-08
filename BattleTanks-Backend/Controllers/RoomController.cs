@@ -24,6 +24,7 @@ public class RoomController : ControllerBase
     public async Task<IActionResult> GetRooms()
     {
         var rooms = await _context.GameSessions
+            .AsNoTracking()
             .Include(r => r.Players)
             .Include(r => r.Map)
             .Where(r => r.Status == GameSessionStatus.Waiting)
@@ -47,6 +48,7 @@ public class RoomController : ControllerBase
     public async Task<IActionResult> GetRoom(Guid id)
     {
         var room = await _context.GameSessions
+            .AsNoTracking()
             .Include(r => r.Players)
             .Include(r => r.Map)
             .FirstOrDefaultAsync(r => r.Id == id);

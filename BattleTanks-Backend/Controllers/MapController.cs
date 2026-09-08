@@ -24,6 +24,7 @@ public class MapController : ControllerBase
     public async Task<IActionResult> GetMaps()
     {
         var maps = await _context.Maps
+            .AsNoTracking()
             .Select(m => new MapResponse(m.Id, m.Name, m.Width, m.Height))
             .ToListAsync();
 
@@ -33,7 +34,10 @@ public class MapController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetMap(Guid id)
     {
-        var map = await _context.Maps.FindAsync(id);
+        var map = await _context.Maps
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.Id == id);
+            
         if (map == null) return NotFound("Map not found.");
 
         return Ok(new MapDetailResponse(map.Id, map.Name, map.Width, map.Height, map.TileData));
