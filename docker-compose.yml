@@ -93,6 +93,18 @@ services:
       - emqx_data:/opt/emqx/data
       - emqx_log:/opt/emqx/log
 
+  influxdb:
+    image: influxdb:1.8
+    container_name: battletanks-influxdb
+    restart: unless-stopped
+    environment:
+      INFLUXDB_DB: k6
+      INFLUXDB_HTTP_AUTH_ENABLED: "false"
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+
 volumes:
   postgres_primary_data:
   postgres_replica_data:
@@ -100,3 +112,4 @@ volumes:
   redis_data:
   emqx_data:
   emqx_log:
+  influxdb_data:
