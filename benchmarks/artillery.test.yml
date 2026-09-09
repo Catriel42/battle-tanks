@@ -1,0 +1,67 @@
+config:
+  target: "http://localhost:5000"
+  phases:
+    - duration: 30
+      arrivalRate: 5
+      name: "Warm up"
+    - duration: 60
+      arrivalRate: 20
+      name: "Sustained load"
+    - duration: 30
+      arrivalRate: 50
+      name: "Peak load"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+before:
+  flow:
+    - log: "Registering and logging in test user..."
+    - post:
+        url: "/api/auth/register"
+        json:
+          username: "arttest_{{ $uuid }}"
+          email: "arttest_{{ $uuid }}@test.com"
+          password: "Test123!"
+        capture:
+          - json: "$.message"
+            as: "registerMsg"
+
+    - post:
+        url: "/api/auth/login"
+        json:
+          username: "arttest_{{ $uuid }}"
+          password: "Test123!"
+        capture:
+          - json: "$.token"
+            as: "authToken"
+
+scenarios:
+  - name: "API Load Test"
+    flow:
+      - get:
+          url: "/api/room"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+
+      - think: 1
+
+      - get:
+          url: "/api/maps"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+
+      - think: 1
+
+      - get:
+          url: "/api/leaderboard"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+
+      - think: 2

@@ -93,6 +93,35 @@ services:
       - emqx_data:/opt/emqx/data
       - emqx_log:/opt/emqx/log
 
+  influxdb:
+    image: influxdb:1.8
+    container_name: battletanks-influxdb
+    restart: unless-stopped
+    environment:
+      INFLUXDB_DB: k6
+      INFLUXDB_HTTP_AUTH_ENABLED: "false"
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: battletanks-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: battletanks
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - influxdb
+
 volumes:
   postgres_primary_data:
   postgres_replica_data:
@@ -100,3 +129,5 @@ volumes:
   redis_data:
   emqx_data:
   emqx_log:
+  influxdb_data:
+  grafana_data:

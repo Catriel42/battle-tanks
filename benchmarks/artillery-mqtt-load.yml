@@ -1,0 +1,50 @@
+config:
+  target: "mqtt://localhost:1883"
+  phases:
+    - duration: 30
+      arrivalRate: 10
+      name: "Ramp up"
+    - duration: 60
+      arrivalRate: 50
+      name: "Sustained load"
+    - duration: 30
+      arrivalRate: 10
+      name: "Ramp down"
+  engines:
+    mqtt: {}
+  mqtt:
+    protocolVersion: 5
+
+scenarios:
+  - name: "MQTT Subscribe to game events"
+    engine: mqtt
+    flow:
+      - connect:
+          clientId: "loadtest_{{ $uuid }}"
+          
+      - subscribe:
+          topic: "game/+/powerup/spawned"
+          qos: 1
+          
+      - subscribe:
+          topic: "game/+/powerup/collected"
+          qos: 1
+          
+      - subscribe:
+          topic: "game/+/collision"
+          qos: 1
+          
+      - subscribe:
+          topic: "game/+/gameover"
+          qos: 1
+
+      - think: 30
+
+      - publish:
+          topic: "test/ping"
+          message: '{"type":"ping","timestamp":{{ $timestamp }}}'
+          qos: 1
+
+      - think: 30
+
+      - disconnect: {}
