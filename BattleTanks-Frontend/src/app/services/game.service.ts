@@ -4,6 +4,7 @@ import { Subject } from 'rxjs';
 
 import { AuthService } from './auth.service';
 import { MqttClientService } from './mqtt-client.service';
+import { environment } from '../../environments/environment';
 import {
   PlayerInputDto,
   GameStateSnapshot,
@@ -37,7 +38,7 @@ export class GameService {
   private mqttService = inject(MqttClientService);
   
   private hubConnection: signalR.HubConnection | null = null;
-  private readonly HUB_URL = 'http://localhost:5000/gamehub';
+  private readonly HUB_URL = environment.hubUrl;
   
   // Connection state
   private _isConnected = signal(false);

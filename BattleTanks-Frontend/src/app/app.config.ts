@@ -4,6 +4,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { authInterceptor } from './interceptors/auth.interceptor';
 import { routes } from './app.routes';
 import { MqttModule } from 'ngx-mqtt';
+import { environment } from '../environments/environment';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -12,10 +13,10 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withInterceptors([authInterceptor])),
     importProvidersFrom(
       MqttModule.forRoot({
-        hostname: 'localhost',
-        port: 8083,
-        path: '/mqtt',
-        protocol: 'ws'
+        hostname: environment.mqtt.hostname,
+        port: environment.mqtt.port,
+        path: environment.mqtt.path,
+        protocol: environment.mqtt.protocol
       } as any)
     )
   ]

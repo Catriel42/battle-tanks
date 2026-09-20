@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { environment } from '../../environments/environment';
 
 export interface LeaderboardEntry {
   rank: number;
@@ -19,7 +20,7 @@ interface LeaderboardResponse {
 })
 export class LeaderboardService {
   private http = inject(HttpClient);
-  private apiUrl = 'http://localhost:5000/api/leaderboard';
+  private apiUrl = `${environment.apiUrl}/leaderboard`;
 
   topKills = signal<LeaderboardEntry[]>([]);
   loading = signal(false);
