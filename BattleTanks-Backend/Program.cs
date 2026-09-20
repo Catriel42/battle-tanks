@@ -10,8 +10,6 @@ using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.WebHost.UseUrls("http://localhost:5000");
-
 builder.Services.AddDbContext<BattleTanksDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("PrimaryConnection")));
 
@@ -48,7 +46,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngular", policy =>
     {
-        policy.WithOrigins("http://localhost:4200", "http://localhost:4300")
+        policy.SetIsOriginAllowed(origin => true) // Permite CloudFront, localhost y cualquier origen del cliente
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
@@ -103,6 +101,16 @@ builder.Services.AddAuthorization();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+// Aplica migraciones pendientes automaticamente al arrancar.
+// Solo en Production: en Development el desarrollador las aplica
+// manualmente con 'dotnet ef database update' para tener control.
+if (app.Environment.IsProduction())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<BattleTanksDbContext>();
+    db.Database.Migrate();
+}
 
 if (app.Environment.IsDevelopment())
 {
