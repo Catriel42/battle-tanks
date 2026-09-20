@@ -10,74 +10,76 @@ The production architecture deployed on **AWS** follows a decoupled and serverle
 
 ### Architecture Diagram
 
-```plantuml
-@startuml BattleTanks_Architecture
-!theme plain
-skinparam componentStyle rectangle
-skinparam roundcorner 8
-skinparam shadowing false
-skinparam defaultFontName "Segoe UI", Arial, Sans-Serif
+![BattleTanks Cloud Architecture](docs/architecture.svg)
 
-actor "Players / Clients" as Client
+> 📄 *The original PlantUML specification is available at [`docs/architecture.puml`](docs/architecture.puml).*
 
-package "AWS Cloud Infrastructure" {
-  
-  package "Edge & Content Delivery (Serverless)" {
-    component "Amazon CloudFront\n(Global CDN & Reverse Proxy)" as CloudFront
-    database "Amazon S3 Bucket\n(Static Angular SPA)" as S3
-  }
+<details>
+<summary><b>View Interactive Mermaid Diagram</b></summary>
 
-  package "Amazon EC2 Host (Ubuntu - Docker Engine)" {
-    
-    component "Nginx Reverse Proxy\n(Port 80 / WebSocket Gateway)" as Nginx
-    
-    package "Application Tier" {
-      component "BattleTanks API\n(.NET 10 / ASP.NET Core)\nPort 5000" as DotNetAPI
-    }
+```mermaid
+flowchart TD
+    subgraph Clients["👤 Players / Clients"]
+        Browser["Web Browser / Client App"]
+    end
 
-    package "Messaging Tier" {
-      component "EMQX Broker (MQTT v5.8)\nWebSockets: 8083 | TCP: 1883" as EMQX
-    }
+    subgraph AWS["☁️ AWS Cloud Infrastructure"]
+        
+        subgraph Edge["Edge & Content Delivery (Serverless)"]
+            CF["Amazon CloudFront\n(Global CDN & Reverse Proxy)"]
+            S3[("Amazon S3 Bucket\n(Static Angular SPA)")]
+        end
 
-    package "Data & Persistence Tier" {
-      database "PostgreSQL 18\nPrimary (Port 5432)" as PostgresPrimary
-      database "PostgreSQL 18\nReplica (Port 5433)" as PostgresReplica
-      database "Redis 8\nCache & Sessions (Port 6379)" as Redis
-    }
+        subgraph EC2["Amazon EC2 Host (Ubuntu 24.04 LTS - Docker Engine)"]
+            Nginx["Nginx Reverse Proxy\n(Port 80 / WebSocket Gateway)"]
 
-    package "Observability Tier" {
-      database "InfluxDB 1.8\nMetrics (Port 8086)" as InfluxDB
-      component "Grafana Dashboard\nMonitoring (Port 3000)" as Grafana
-      component "pgAdmin 4\nDB GUI (Port 8081)" as pgAdmin
-    }
-  }
-}
+            subgraph AppTier["Application Tier"]
+                DotNetAPI["BattleTanks API\n(.NET 10 / ASP.NET Core :5000)"]
+            end
 
-' Client Connections
-Client --> CloudFront : HTTPS (:443)\nTraffic & WebSockets
+            subgraph MsgTier["Messaging Tier"]
+                EMQX["EMQX Broker (MQTT v5.8)\n(WS: 8083 | TCP: 1883)"]
+            end
 
-' CloudFront Routing (Single Domain)
-CloudFront --> S3 : "/* (Default)"\nStatic Assets (HTML/JS/CSS)
-CloudFront --> Nginx : "/api/*, /gamehub*, /mqtt*"\nHTTP & WebSocket Upgrade
+            subgraph DataTier["Data & Persistence Tier"]
+                PG_Prim[("PostgreSQL 18\nPrimary (:5432)")]
+                PG_Repl[("PostgreSQL 18\nReplica (:5433)")]
+                Redis[("Redis 8\nSessions & Cache (:6379)")]
+            end
 
-' Nginx Internal Routing
-Nginx --> DotNetAPI : "/api/*" -> HTTP REST
-Nginx --> DotNetAPI : "/gamehub*" -> SignalR WebSockets
-Nginx --> EMQX : "/mqtt*" -> MQTT WebSockets
+            subgraph ObsTier["Observability Tier"]
+                Influx[("InfluxDB 1.8\nMetrics (:8086)")]
+                Grafana["Grafana Dashboard\nMonitoring (:3000)"]
+                pgAdmin["pgAdmin 4\nDB GUI (:8081)"]
+            end
+        end
+    end
 
-' Backend Integrations
-DotNetAPI --> PostgresPrimary : Write / Read Transactions (EF Core)
-DotNetAPI --> PostgresReplica : Read Queries (Replica)
-DotNetAPI --> Redis : Distributed Caching & Tokens
-DotNetAPI --> EMQX : Pub/Sub Game Events (TCP 1883)
+    %% Client Traffic
+    Browser -->|HTTPS :443| CF
 
-' Replication & Monitoring
-PostgresPrimary .> PostgresReplica : WAL Streaming Replication
-Grafana --> InfluxDB : Read Performance Metrics
-pgAdmin --> PostgresPrimary : Database Admin
+    %% CloudFront Routing
+    CF -->|"/* (Default)"| S3
+    CF -->|"/api/*, /gamehub*, /mqtt*"| Nginx
 
-@enduml
+    %% Nginx Routing
+    Nginx -->|"/api/*" (REST)| DotNetAPI
+    Nginx -->|"/gamehub*" (SignalR WS)| DotNetAPI
+    Nginx -->|"/mqtt*" (MQTT WS)| EMQX
+
+    %% Backend Integrations
+    DotNetAPI -->|Write / Read (EF Core)| PG_Prim
+    DotNetAPI -->|Read Queries| PG_Repl
+    DotNetAPI -->|Distributed Cache| Redis
+    DotNetAPI -->|Pub/Sub Events (TCP 1883)| EMQX
+
+    %% Data Flow
+    PG_Prim -.->|WAL Replication| PG_Repl
+    Grafana --> Influx
+    pgAdmin --> PG_Prim
 ```
+
+</details>
 
 ---
 
