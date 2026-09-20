@@ -1,4 +1,57 @@
 services:
+  api:
+    build:
+      context: ./BattleTanks-Backend
+      dockerfile: Dockerfile
+      network: host 
+    container_name: battletanks-api
+    restart: unless-stopped
+    ports:
+      - "5001:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://0.0.0.0:5000
+      - Jwt__Secret=SuperSecretKeyForBattleTanksApiWhichNeedsToBeAtLeast32BytesLong!
+      - Jwt__Issuer=BattleTanksBackend
+      - Jwt__Audience=BattleTanksFrontend
+      - ConnectionStrings__PrimaryConnection=Host=postgres-primary;Port=5432;Database=battletanks;Username=battletanks;Password=battletanks;Pooling=true;MinPoolSize=5;MaxPoolSize=100;ConnectionIdleLifetime=300;ConnectionPruningInterval=10
+      - ConnectionStrings__ReplicaConnection=Host=postgres-replica;Port=5432;Database=battletanks;Username=battletanks;Password=battletanks;Pooling=true;MinPoolSize=2;MaxPoolSize=50;ConnectionIdleLifetime=300;ConnectionPruningInterval=10
+      - ConnectionStrings__Redis=redis:6379
+      - Mqtt__Host=emqx
+      - Mqtt__Port=1883
+      - Mqtt__UseTls=false
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+      postgres-replica:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      emqx:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============================================================
+  # Nginx Reverse Proxy (WebSockets, SignalR & API Gateway)
+  # ============================================================
+  nginx:
+    image: nginx:alpine
+    container_name: battletanks-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - emqx
+
+
   postgres-primary:
     image: postgres:18
     container_name: battletanks-postgres-primary
