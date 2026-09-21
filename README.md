@@ -2,6 +2,12 @@
 
 Real-time multiplayer tank battle game. Players register an account, create or join game rooms, and fight in a 2D tile-based arena. Built on a client-server architecture using HTTP REST for authentication and room management, SignalR for state synchronization, and MQTT (EMQX) for low-latency in-game event messaging.
 
+<img width="482" alt="image" src="https://github.com/user-attachments/assets/45aa17bc-d12f-420b-9461-f7136cf565d8" />
+
+<img width="482" alt="image" src="https://github.com/user-attachments/assets/a48db8f4-e8c3-4fd6-9355-8bbea4020119" />
+
+<img width="1564" height="891" alt="image" src="https://github.com/user-attachments/assets/09dc87a0-91fb-46ef-8daa-13473b430fc5" />
+
 ---
 
 ## Cloud Architecture Overview
